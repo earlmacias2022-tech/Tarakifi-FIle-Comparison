@@ -77,16 +77,11 @@ function M.trial_is_expired(settings)
   return trial_started_at > 0 and (os.time() - trial_started_at) >= 86400
 end
 
---- Customer internet is available only to a full active license or a live trial.
---- Every other state is intentionally fail-closed.
+--- Customer service does not require license activation.
 function M.customer_access_allowed(settings)
   settings = settings or {}
   local license_status = trim_text(settings.license_status or db.setting("license_status") or "trial")
-  if license_status == "active" then return true, license_status end
-  if license_status == "trial" and not M.trial_is_expired(settings) then
-    return true, license_status
-  end
-  return false, license_status
+  return true, license_status
 end
 
 local function read_trimmed_file(path)
