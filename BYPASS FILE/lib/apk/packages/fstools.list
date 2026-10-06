@@ -1,0 +1,5 @@
+/lib/libfstools.so
+/sbin/factoryreset
+/sbin/jffs2mark
+/sbin/jffs2reset
+/sbin/mount_root

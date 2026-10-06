@@ -1,0 +1,48 @@
+flush ruleset
+table inet tarakifi {
+    set allowed_macs {
+        type ether_addr
+        flags dynamic
+    }
+    set rental_macs {
+        type ether_addr
+        flags dynamic
+    }
+    set wan_admin_sources {
+        type ipv4_addr
+        flags interval
+    }
+    set wan_ssh_sources {
+        type ipv4_addr
+        flags interval
+    }
+    chain input {
+        type filter hook input priority filter; policy drop;
+        iifname "lo" accept
+        ct state established,related accept
+        iifname "br-lan" accept
+        iifname "__WAN_DEVICE__" udp sport 67 udp dport 68 accept
+        iifname "__WAN_L3_IFACE__" ip saddr @wan_admin_sources tcp dport 8080 accept
+        iifname "__WAN_L3_IFACE__" ip saddr @wan_ssh_sources tcp dport 22 accept
+    }
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related accept
+        iifname "br-lan" oifname "__WAN_L3_IFACE__" ether saddr @rental_macs accept
+        iifname "br-lan" oifname "__WAN_L3_IFACE__" ether saddr @allowed_macs accept
+    }
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+        iifname "br-lan" ether saddr @allowed_macs return
+        iifname "br-lan" ether saddr @rental_macs return
+        iifname "br-lan" udp dport 53 redirect to :53
+        iifname "br-lan" tcp dport 53 redirect to :53
+        iifname "br-lan" ip daddr 10.0.0.1 tcp dport 80 redirect to :8888
+        iifname "br-lan" ip daddr 10.0.0.1 tcp dport 8080 accept
+        iifname "br-lan" tcp dport 80 redirect to :2080
+    }
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        oifname "__WAN_L3_IFACE__" masquerade
+    }
+}

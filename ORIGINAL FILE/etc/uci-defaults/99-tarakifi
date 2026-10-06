@@ -1,0 +1,191 @@
+#!/bin/sh
+
+config_dir="${TARAKIFI_CONFIG_DIR:-/etc/tarakifi}"
+initialized_marker="$config_dir/appliance.initialized"
+flash_db="$config_dir/sessions.db"
+backup_db="$config_dir/sessions.db.bak"
+dropbear_dir="${TARAKIFI_DROPBEAR_DIR:-/etc/dropbear}"
+tarakifi_init="${TARAKIFI_INIT_SCRIPT:-/etc/init.d/tarakifi}"
+zram_init="${TARAKIFI_ZRAM_INIT_SCRIPT:-/etc/init.d/zram}"
+uhttpd_init="${TARAKIFI_UHTTPD_INIT_SCRIPT:-/etc/init.d/uhttpd}"
+cron_file="${TARAKIFI_CRON_FILE:-/etc/crontabs/root}"
+cron_init="${TARAKIFI_CRON_INIT_SCRIPT:-/etc/init.d/cron}"
+cloud_backup_cron_line="17 3 * * * /usr/lib/tarakifi/cloud-backup.sh scheduled >/dev/null 2>&1"
+uci_bin="${TARAKIFI_UCI_BIN:-uci}"
+led_dir="${TARAKIFI_LED_CLASS_DIR:-/sys/class/leds}"
+
+mkdir -p "$config_dir"
+
+find_wifi_iface() {
+    local radio="$1"
+    local iface="default_$radio"
+    local section device network mode
+
+    if "$uci_bin" -q get "wireless.$iface" >/dev/null 2>&1; then
+        echo "$iface"
+        return 0
+    fi
+
+    for section in $("$uci_bin" -q show wireless 2>/dev/null | sed -n 's/^wireless\.\([^=]*\)=wifi-iface$/\1/p'); do
+        device=$("$uci_bin" -q get "wireless.$section.device" 2>/dev/null || true)
+        network=$("$uci_bin" -q get "wireless.$section.network" 2>/dev/null || true)
+        mode=$("$uci_bin" -q get "wireless.$section.mode" 2>/dev/null || true)
+        if [ "$device" = "$radio" ] && [ "$network" = "lan" ] && [ "$mode" = "ap" ]; then
+            echo "$section"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+set_wifi_default() {
+    local radio="$1"
+    local ssid="$2"
+    local channel="${3:-6}"
+    local htmode="${4:-HT20}"
+    local iface=""
+    local opt
+
+    if "$uci_bin" -q get "wireless.$radio" >/dev/null 2>&1; then
+        "$uci_bin" set "wireless.$radio.disabled=0" || exit 1
+        "$uci_bin" set "wireless.$radio.channel=$channel" || exit 1
+        "$uci_bin" set "wireless.$radio.htmode=$htmode" || exit 1
+    fi
+    iface="$(find_wifi_iface "$radio" || true)"
+    if [ -n "$iface" ]; then
+        "$uci_bin" set "wireless.$iface.disabled=0" || exit 1
+        "$uci_bin" set "wireless.$iface.ssid=$ssid" || exit 1
+        "$uci_bin" set "wireless.$iface.encryption=none" || exit 1
+        for opt in wps_pushbutton wps_state device_type device_name config_methods wps_independent eap_server eap_server_erp; do
+            "$uci_bin" -q delete "wireless.$iface.$opt" >/dev/null 2>&1 || true
+        done
+    fi
+}
+
+first_led() {
+    local led
+    for led in "$@"; do
+        if [ -e "$led_dir/$led" ]; then
+            echo "$led"
+            return 0
+        fi
+    done
+    return 1
+}
+
+set_netdev_led() {
+    local section="$1"
+    local name="$2"
+    local sysfs="$3"
+    local dev="$4"
+    [ -n "$sysfs" ] || return 0
+    "$uci_bin" set "system.$section=led" || exit 1
+    "$uci_bin" set "system.$section.name=$name" || exit 1
+    "$uci_bin" set "system.$section.sysfs=$sysfs" || exit 1
+    "$uci_bin" set "system.$section.trigger=netdev" || exit 1
+    "$uci_bin" set "system.$section.dev=$dev" || exit 1
+    "$uci_bin" set "system.$section.mode=link tx rx" || exit 1
+}
+
+configure_leds() {
+    local lan_led wan_led wlan_led
+    lan_led="$(first_led "blue:lan" "green:lan" "lan" || true)"
+    wan_led="$(first_led "blue:wan" "red:wan" "wan" || true)"
+    wlan_led="$(first_led "blue:wlan" "ath9k-phy0" "wlan" || true)"
+
+    set_netdev_led led_lan LAN "$lan_led" eth0
+    set_netdev_led led_wan WAN "$wan_led" eth1
+    if [ -n "$wlan_led" ]; then
+        "$uci_bin" set system.led_wlan=led || exit 1
+        "$uci_bin" set system.led_wlan.name='WLAN' || exit 1
+        "$uci_bin" set "system.led_wlan.sysfs=$wlan_led" || exit 1
+        "$uci_bin" set system.led_wlan.trigger='phy0radio' || exit 1
+    fi
+}
+
+set_led_default_on() {
+    local section="$1"
+    local name="$2"
+    local sysfs="$3"
+    [ -n "$sysfs" ] || return 0
+    "$uci_bin" set "system.$section=led" || exit 1
+    "$uci_bin" set "system.$section.name=$name" || exit 1
+    "$uci_bin" set "system.$section.sysfs=$sysfs" || exit 1
+    "$uci_bin" set "system.$section.trigger=default-on" || exit 1
+}
+
+configure_profile_leds() {
+    local router_slug
+    router_slug="$(cat "$config_dir/router-slug" 2>/dev/null || true)"
+    case "$router_slug" in
+        comfast-cf-ew71-v2|comfast-cf-ew72-v2) ;;
+        *) return 0 ;;
+    esac
+
+    # Some Comfast status LEDs look off with activity triggers.
+    set_led_default_on led_wan WAN "$(first_led "blue:wan" "red:wan" "wan" || true)"
+    set_led_default_on led_wlan WLAN "$(first_led "blue:wlan" "ath9k-phy0" "wlan" || true)"
+}
+
+cleanup_fresh_wifi_ifaces() {
+    local section device network mode sections
+    sections="$("$uci_bin" -q show wireless 2>/dev/null | sed -n 's/^wireless\.\([^=]*\)=wifi-iface$/\1/p' | sed '1!G;h;$!d')"
+    for section in $sections; do
+        device=$("$uci_bin" -q get "wireless.$section.device" 2>/dev/null || true)
+        network=$("$uci_bin" -q get "wireless.$section.network" 2>/dev/null || true)
+        mode=$("$uci_bin" -q get "wireless.$section.mode" 2>/dev/null || true)
+        if [ "$network" = "lan" ] && [ "$mode" = "ap" ] &&
+            { [ "$device" = "radio0" ] || [ "$device" = "radio1" ]; }; then
+            continue
+        fi
+        "$uci_bin" -q delete "wireless.$section" >/dev/null 2>&1 || true
+    done
+}
+
+# Older TarakiFi images do not have the marker yet, so their preserved database
+# also identifies an upgrade. Only a clean flash receives network defaults.
+if [ ! -e "$initialized_marker" ] && [ ! -s "$flash_db" ] && [ ! -s "$backup_db" ]; then
+    "$uci_bin" set network.lan.ipaddr='10.0.0.1' || exit 1
+    "$uci_bin" set network.lan.netmask='255.255.255.0' || exit 1
+    "$uci_bin" commit network || exit 1
+
+    set_wifi_default radio0 'TarakiFi WiFi' 6 HT20
+    set_wifi_default radio1 'TarakiFi WiFi 5G' 36 VHT80
+    cleanup_fresh_wifi_ifaces
+    "$uci_bin" commit wireless || exit 1
+fi
+
+touch "$initialized_marker" || exit 1
+chmod 0600 "$initialized_marker"
+
+"$uci_bin" set system.@system[0].zram_size_mb='64'
+"$uci_bin" set system.@system[0].zram_priority='100'
+configure_leds
+configure_profile_leds
+"$uci_bin" commit system
+
+"$uci_bin" set dropbear.@dropbear[0].PasswordAuth='off'
+"$uci_bin" set dropbear.@dropbear[0].RootPasswordAuth='off'
+"$uci_bin" commit dropbear
+chmod 0700 "$dropbear_dir"
+if [ -f "$dropbear_dir/authorized_keys" ]; then
+    chmod 0600 "$dropbear_dir/authorized_keys"
+fi
+
+"$tarakifi_init" enable
+"$zram_init" enable
+
+"$uci_bin" delete uhttpd.main.listen_http >/dev/null 2>&1 || true
+"$uci_bin" set uhttpd.main.listen_https=''
+"$uci_bin" commit uhttpd
+"$uhttpd_init" disable >/dev/null 2>&1 || true
+"$uhttpd_init" stop >/dev/null 2>&1 || true
+
+mkdir -p "$(dirname "$cron_file")"
+touch "$cron_file" || exit 1
+grep -Fqx "$cloud_backup_cron_line" "$cron_file" || echo "$cloud_backup_cron_line" >> "$cron_file"
+"$cron_init" enable >/dev/null 2>&1 || true
+"$cron_init" restart >/dev/null 2>&1 || true
+
+exit 0

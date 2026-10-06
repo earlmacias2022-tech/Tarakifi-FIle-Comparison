@@ -1,0 +1,2 @@
+/etc/modules.d/09-crypto-geniv
+/lib/modules/6.12.94/geniv.ko

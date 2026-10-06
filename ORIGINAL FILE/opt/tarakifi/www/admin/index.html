@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>TarakiFi Admin</title>
+<link rel="icon" type="image/png" href="/logo.png">
+<script>
+(function () {
+  if (window.location.pathname.indexOf('/api/remote/') === 0) {
+    document.documentElement.className += ' remote-access';
+  }
+})();
+</script>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.5; transition: background .2s, color .2s; }
+
+/* ── Dark Theme (default) ─────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg2: #161b22;
+  --bg3: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --accent: #58a6ff;
+  --accent-bg: rgba(88,166,255,.1);
+  --green: #7ee787;
+  --red: #f85149;
+  --amber: #f0883e;
+  --sidebar-bg: #0d1117;
+  --sidebar-border: #21262d;
+  --nav-hover: rgba(255,255,255,.06);
+  --nav-active-bg: rgba(88,166,255,.12);
+  --nav-active-color: #58a6ff;
+  --danger-color: #fca5a5;
+  --danger-bg: rgba(239,68,68,.12);
+  --input-bg: #0d1117;
+  --card-bg: #161b22;
+  --shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+
+body { background: var(--bg); color: var(--text); }
+
+/* ── Login Screen ─────────────────────────────────────────────────────────── */
+.login-screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); z-index: 9999; padding: 20px; }
+.login-card { width: 100%; max-width: 360px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 32px 28px; box-shadow: var(--shadow); text-align: center; }
+.login-logo { width: 56px; height: 56px; object-fit: contain; border-radius: 10px; margin-bottom: 12px; }
+.login-card h1 { font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.login-subtitle { font-size: .82rem; color: var(--text2); margin-bottom: 20px; }
+.login-card form { display: flex; flex-direction: column; gap: 10px; }
+.pw-wrap { position: relative; }
+.pw-wrap .input { padding-right: 40px; }
+.pw-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text2); padding: 4px; display: flex; align-items: center; }
+.pw-toggle:hover { color: var(--accent); }
+.login-card .btn-primary { margin-top: 4px; }
+.login-footer { margin-top: 16px; }
+.link-btn { background: none; border: none; color: var(--accent); font-size: .82rem; cursor: pointer; padding: 0; }
+.link-btn:hover { text-decoration: underline; }
+.error-text { color: var(--red); font-size: .82rem; margin-top: 4px; }
+html.remote-access .login-screen { display: none; }
+html.remote-access #app { display: block !important; }
+
+/* ── App Shell ────────────────────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.admin-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 200;
+  transition: width .2s cubic-bezier(.23,1,.32,1), transform .2s cubic-bezier(.23,1,.32,1);
+  overflow: hidden;
+}
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px 14px;
+  border-bottom: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
+}
+.brand-logo { width: 32px; height: 32px; object-fit: contain; border-radius: 8px; flex-shrink: 0; }
+.brand-copy { overflow: hidden; }
+.brand-name { display: block; max-width: 138px; overflow: hidden; text-overflow: ellipsis; font-size: .9rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.brand-hint { display: block; font-size: .7rem; color: var(--text2); white-space: nowrap; }
+.sidebar-collapse {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.sidebar-collapse:hover { background: var(--accent-bg); color: var(--accent); }
+.sidebar-collapse svg { width: 12px; height: 12px; transition: transform .2s; }
+
+.admin-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-nav::-webkit-scrollbar { width: 4px; }
+.admin-nav::-webkit-scrollbar-track { background: transparent; }
+.admin-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.nav-section-label {
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text2);
+  padding: 10px 10px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text2);
+  font-size: .82rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  text-align: left;
+  width: 100%;
+  transition: background .14s, color .14s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.nav-item:hover { background: var(--nav-hover); color: var(--text); }
+.nav-item.active { background: var(--nav-active-bg); color: var(--nav-active-color); }
+.nav-item.active .nav-icon { color: var(--nav-active-color); }
+.nav-icon {
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--text2);
+  transition: background .14s, color .14s;
+}
+.nav-icon svg { width: 15px; height: 15px; }
+.nav-item:hover .nav-icon { background: var(--accent-bg); color: var(--accent); }
+.nav-item.active .nav-icon { background: var(--accent-bg); }
+.nav-copy { overflow: hidden; }
+.nav-label { display: block; font-size: .82rem; font-weight: 600; white-space: nowrap; }
+.nav-hint { display: block; font-size: .7rem; color: var(--text2); white-space: nowrap; margin-top: 1px; }
+.nav-item.active .nav-hint { color: var(--nav-active-color); opacity: .7; }
+
+.nav-danger { color: var(--danger-color) !important; }
+.nav-danger .nav-icon { background: var(--danger-bg) !important; color: var(--danger-color) !important; }
+.nav-danger:hover { background: var(--danger-bg) !important; }
+
+.sidebar-footer {
+  padding: 10px;
+  border-top: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* ── Collapsed Sidebar ────────────────────────────────────────────────────── */
+.admin-sidebar.collapsed { width: 60px; }
+.admin-sidebar.collapsed .brand-copy,
+.admin-sidebar.collapsed .nav-label,
+.admin-sidebar.collapsed .nav-hint,
+.admin-sidebar.collapsed .nav-section-label { display: none; }
+.admin-sidebar.collapsed .sidebar-head { justify-content: center; padding: 16px 0 14px; }
+.admin-sidebar.collapsed .sidebar-collapse { margin-left: 0; }
+.admin-sidebar.collapsed .nav-item { justify-content: center; padding: 8px 0; }
+.admin-sidebar.collapsed .admin-nav { padding: 10px 6px; }
+.admin-sidebar.collapsed .sidebar-footer { padding: 10px 6px; }
+.admin-sidebar.collapsed .sidebar-collapse svg { transform: rotate(180deg); }
+
+/* ── Mobile Sidebar ───────────────────────────────────────────────────────── */
+.sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 199; }
+.mobile-header { display: none; align-items: center; gap: 10px; padding: 12px 16px; background: var(--card-bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+.mobile-menu-btn { background: none; border: none; cursor: pointer; color: var(--text); padding: 4px; display: flex; align-items: center; }
+.mobile-header-logo { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; }
+.mobile-header-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .95rem; font-weight: 700; color: var(--accent); flex: 1; }
+
+@media (max-width: 768px) {
+  .admin-sidebar { transform: translateX(-100%); width: 240px !important; }
+  .admin-sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-backdrop.visible { display: block; }
+  .mobile-header { display: flex; }
+  .main-content { margin-left: 0 !important; }
+  .admin-sidebar.collapsed { transform: translateX(-100%); }
+}
+
+/* ── Main Content ─────────────────────────────────────────────────────────── */
+.main-content {
+  flex: 1;
+  margin-left: 240px;
+  min-width: 0;
+  transition: margin-left .2s cubic-bezier(.23,1,.32,1);
+  display: flex;
+  flex-direction: column;
+}
+.main-content.sidebar-collapsed { margin-left: 60px; }
+
+/* ── Page Header ──────────────────────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.page-header-left { display: flex; flex-direction: column; }
+.page-kicker { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); }
+.page-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.page-header-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ── Content Area ─────────────────────────────────────────────────────────── */
+.content-area { padding: 20px; max-width: 900px; }
+@media (max-width: 600px) { .content-area { padding: 12px; } }
+
+/* ── Tabs (hidden, used for section switching) ────────────────────────────── */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Stats Grid ───────────────────────────────────────────────────────────── */
+.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (min-width: 600px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+.stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; box-shadow: var(--shadow); }
+.stat-label { display: block; font-size: .7rem; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.stat-value { display: block; font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+
+/* ── Widget ───────────────────────────────────────────────────────────────── */
+.widget { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.widget-title { font-size: .9rem; font-weight: 600; color: var(--text); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.widget-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+/* ── Health Grid ──────────────────────────────────────────────────────────── */
+.health-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 480px) { .health-grid { grid-template-columns: repeat(2, 1fr); } }
+.health-item { text-align: center; padding: 10px 6px; background: var(--bg3); border-radius: 8px; }
+.health-label { display: block; font-size: .65rem; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; }
+.health-value { display: block; font-size: .95rem; font-weight: 700; color: var(--green); margin-top: 4px; }
+.health-detail { display: block; min-height: 1em; font-size: .65rem; color: var(--text2); margin-top: 2px; }
+.health-value.is-warning { color: var(--red); }
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--border); }
+.table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.table th { text-align: left; padding: 10px 12px; color: var(--text2); background: var(--bg3); border-bottom: 1px solid var(--border); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+.table tr:last-child td { border-bottom: none; }
+.table tr:hover td { background: var(--nav-hover); }
+
+/* ── Form Cards ───────────────────────────────────────────────────────────── */
+.form-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.form-title { font-size: .9rem; font-weight: 600; color: var(--text); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.form-row { margin-bottom: 12px; }
+.form-row label { display: block; font-size: .78rem; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+.form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+/* ── Inputs ───────────────────────────────────────────────────────────────── */
+.input { display: block; width: 100%; padding: 8px 12px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: .88rem; transition: border-color .15s; }
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.textarea { resize: vertical; font-family: monospace; min-height: 80px; }
+select.input { cursor: pointer; }
+
+/* ── Password wrapper ─────────────────────────────────────────────────────── */
+.pw-field-wrap { position: relative; }
+.pw-field-wrap .input { padding-right: 40px; }
+.pw-eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text2); padding: 4px; display: flex; align-items: center; }
+.pw-eye:hover { color: var(--accent); }
+.pw-eye svg { width: 16px; height: 16px; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: 7px; font-size: .85rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: background .15s, border-color .15s, transform .1s; white-space: nowrap; }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { opacity: .9; }
+.btn-outline { background: transparent; color: var(--text); border-color: var(--border); }
+.btn-outline:hover { background: var(--nav-hover); border-color: var(--text2); }
+.btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+.btn-danger:hover { opacity: .9; }
+.btn-danger-outline { background: transparent; color: var(--red); border-color: var(--red); }
+.btn-danger-outline:hover { background: var(--danger-bg); }
+.btn-sm { padding: 5px 12px; font-size: .78rem; }
+.btn-block { width: 100%; }
+.btn-success { background: #1a7f37; color: #fff; border-color: #1a7f37; }
+[data-theme="dark"] .btn-success { background: #238636; border-color: #238636; }
+.btn-success:hover { opacity: .9; }
+.file-label { cursor: pointer; }
+
+/* ── Bandwidth / Segmented options ───────────────────────────────────────── */
+.bw-mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 600px) { .bw-mode-grid { grid-template-columns: 1fr; } }
+.bw-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .bw-grid-2 { grid-template-columns: 1fr; } }
+.segmented-option { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg2); transition: border-color .15s, background .15s; }
+.segmented-option input[type=radio] { display: none; }
+.segmented-option strong { font-size: .85rem; color: var(--text); }
+.segmented-option small { font-size: .72rem; color: var(--text2); line-height: 1.4; }
+.segmented-option.selected, .segmented-option:has(input:checked) { border-color: var(--accent); background: var(--accent-bg, rgba(59,130,246,.08)); }
+.segmented-option.selected strong, .segmented-option:has(input:checked) strong { color: var(--accent); }
+.notice-amber { font-size: .78rem; padding: 8px 12px; border-radius: 6px; background: rgba(234,179,8,.12); border: 1px solid rgba(234,179,8,.3); color: var(--text); }
+
+/* ── Voucher select checkbox ─────────────────────────────────────────────── */
+.voucher-card.selected { outline: 2px solid var(--accent); }
+
+/* ── Info Grid ────────────────────────────────────────────────────────────── */
+.info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
+.info-item { padding: 8px 10px; background: var(--bg3); border-radius: 7px; }
+.info-label { display: block; font-size: .7rem; color: var(--text2); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+.info-value { display: block; font-size: .88rem; color: var(--text); font-weight: 500; word-break: break-all; }
+
+/* ── Badge ────────────────────────────────────────────────────────────────── */
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: .72rem; font-weight: 600; }
+.badge-blue { background: var(--accent-bg); color: var(--accent); }
+.badge-green { background: rgba(46,160,67,.15); color: var(--green); }
+.badge-red { background: rgba(248,81,73,.15); color: var(--red); }
+.badge-gray { background: var(--bg3); color: var(--text2); }
+
+/* ── Action Buttons in Tables ─────────────────────────────────────────────── */
+.action-btn { padding: 3px 8px; font-size: .72rem; border-radius: 5px; cursor: pointer; border: 1px solid var(--border); background: var(--bg3); color: var(--text); margin-right: 3px; margin-bottom: 2px; display: inline-block; transition: border-color .12s, color .12s; }
+.action-btn:hover { border-color: var(--accent); color: var(--accent); }
+.action-btn.danger { border-color: var(--red); color: var(--red); }
+.action-btn.danger:hover { background: var(--danger-bg); }
+
+/* ── Danger Zone ──────────────────────────────────────────────────────────── */
+.danger-zone { border-color: var(--red) !important; }
+.danger-zone .form-title { color: var(--red); }
+
+/* ── Modal ────────────────────────────────────────────────────────────────── */
+.modal { display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+.modal.open { display: flex; }
+.modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+.modal-card { position: relative; width: 100%; max-width: 400px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; z-index: 1; box-shadow: 0 8px 32px rgba(0,0,0,.3); }
+.modal-close { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--text2); font-size: 1.4rem; cursor: pointer; }
+.modal-card h3 { margin-bottom: 8px; color: var(--text); font-size: 1rem; }
+.modal-desc { font-size: .82rem; color: var(--text2); margin-bottom: 14px; }
+.modal-card .input { margin-bottom: 10px; }
+
+/* ── Voucher Print Styles ─────────────────────────────────────────────────── */
+.voucher-grid { width: 100%; overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+.voucher-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.voucher-table th { text-align: left; padding: 9px 12px; color: var(--text2); background: var(--bg3); border-bottom: 1px solid var(--border); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.voucher-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text); }
+.voucher-table tr:last-child td { border-bottom: none; }
+.voucher-table tr.used-row td { opacity: .5; }
+.voucher-table tr.selected-row { background: var(--accent-bg); }
+.voucher-table tr:hover td { background: var(--nav-hover); }
+.voucher-table tr.selected-row:hover td { background: var(--accent-bg); }
+.v-code-cell { font-family: 'Courier New', monospace; font-size: .9rem; font-weight: 800; letter-spacing: .1em; color: var(--accent); }
+
+/* ── Voucher Print Media ──────────────────────────────────────────────────── */
+@media print {
+  .admin-sidebar, .mobile-header, .page-header, .widget-header .btn, #print-vouchers-btn, #btn-gen-vouchers, .action-btn, .v-sel-cb, #voucher-select-bar, #btn-delete-selected, #btn-delete-used { display: none !important; }
+  .main-content { margin-left: 0 !important; }
+  .content-area { padding: 0 !important; }
+  .voucher-grid { border: none; overflow: visible; }
+  .voucher-table { font-size: 11px; }
+  .voucher-table th, .voucher-table td { padding: 6px 8px; color: #000 !important; border-color: #ccc !important; background: none !important; opacity: 1 !important; }
+  .voucher-table th { background: #f0f0f0 !important; }
+  .v-code-cell { color: #000 !important; }
+  body { background: #fff; color: #000; }
+  .tab-content { display: none !important; }
+  #tab-vouchers { display: block !important; }
+  .voucher-gen-panel { display: none !important; }
+}
+
+/* ── Rate Tier Panel ─────────────────────────────────────────────────────── */
+.rate-tier-panel { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--card-bg); }
+.rate-tier-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--bg3); }
+.rate-tier-panel-label { display: block; font-size: .82rem; font-weight: 700; color: var(--text); }
+.rate-tier-panel-hint { display: block; font-size: .72rem; color: var(--text2); margin-top: 1px; }
+.rate-tier-list { display: flex; flex-direction: column; }
+.rate-tier-row { display: grid; grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr) minmax(0, 1fr) 140px 30px; align-items: end; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--card-bg); transition: background .12s; }
+.rate-tier-row:hover { background: var(--nav-hover); }
+.rate-tier-index { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--accent-bg); color: var(--accent); font-size: 11px; font-weight: 800; flex-shrink: 0; }
+.rate-tier-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rate-tier-field label { font-size: .7rem; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.rate-tier-field { flex: 1 1 110px; }
+.rate-tier-field input, .rate-tier-field select { font-family: ui-monospace, monospace; font-size: 14px; font-weight: 700; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text); width: 100%; height: 36px; }
+.rate-tier-field input:focus, .rate-tier-field select:focus { outline: none; border-color: var(--accent); }
+.rate-tier-sep { font-size: 16px; color: var(--text2); font-weight: 700; text-align: center; padding-bottom: 8px; }
+.rate-tier-badge { display: inline-flex; align-items: center; justify-content: center; padding: 7px 10px; border-radius: 6px; background: var(--accent-bg); border: 1px solid var(--border); color: var(--accent); font-size: 12px; font-weight: 800; white-space: nowrap; min-width: 0; width: 100%; height: 36px; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; }
+.rate-tier-del { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; color: var(--text2); flex-shrink: 0; align-self: end; margin-bottom: 3px; transition: background .12s, color .12s; }
+.rate-tier-del:hover { background: var(--danger-bg); color: var(--danger-color); border-color: var(--danger-color); }
+.rate-tier-empty { display: flex; align-items: center; gap: 10px; padding: 18px 14px; color: var(--text2); font-size: .82rem; border-top: 1px solid var(--border); }
+.rate-tier-empty svg { flex-shrink: 0; opacity: .5; }
+@media (max-width: 640px) {
+  .rate-tier-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 30px;
+    grid-template-areas:
+      "amount duration delete"
+      "unit preview delete";
+  }
+  .rate-tier-row > .rate-tier-field:nth-child(1) { grid-area: amount; }
+  .rate-tier-row > .rate-tier-sep { display: none; }
+  .rate-tier-row > .rate-tier-field:nth-child(3) { grid-area: duration; }
+  .rate-tier-row > .rate-tier-field:nth-child(4) { grid-area: unit; }
+  .rate-tier-row > .rate-tier-badge { grid-area: preview; }
+  .rate-tier-row > .rate-tier-del { grid-area: delete; align-self: center; margin-bottom: 0; }
+}
+.btn-sm { font-size: .78rem; padding: 6px 12px; }
+
+/* ── Section Header ───────────────────────────────────────────────────────── */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.section-header h3 { font-size: 1rem; font-weight: 600; color: var(--text); }
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9000;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: .85rem;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+  max-width: 320px;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.success { background: #238636; color: #fff; }
+#toast.error { background: #da3633; color: #fff; }
+
+.asset-feedback { display: block; min-height: 18px; margin-top: 4px; font-size: .75rem; color: var(--text2); }
+.asset-feedback.is-success { color: var(--green); }
+.asset-feedback.is-error { color: var(--danger-color); }
+.asset-preview-row { display: flex; gap: 12px; align-items: center; margin: 0 0 12px; }
+.asset-preview { display: none; object-fit: contain; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; }
+.asset-preview.logo { width: 64px; height: 64px; }
+.asset-preview.hero { width: min(100%, 320px); height: 120px; object-fit: cover; }
+
+/* ── Voucher gen form ─────────────────────────────────────────────────────── */
+.voucher-gen-panel { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+.voucher-gen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.voucher-value-unit { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 6px; }
+.voucher-gen-panel .input { min-height: 44px; }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <img src="/logo.png" alt="TarakiFi" class="login-logo" data-brand-logo>
+    <h1>TarakiFi Admin</h1>
+    <form id="login-form" autocomplete="off">
+      <div class="pw-wrap">
+        <input type="password" id="login-password" class="input" placeholder="Admin Password" required>
+        <button type="button" class="pw-toggle" id="pw-toggle-btn" tabindex="-1" aria-label="Show password">
+          <svg id="pw-eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Login</button>
+      <p id="login-error" class="error-text" style="display:none"></p>
+    </form>
+    <div class="login-footer">
+      <button id="forgot-password-btn" type="button" class="link-btn">Forgot Password?</button>
+    </div>
+  </div>
+</div>
+
+<!-- Forgot Password Modal -->
+<div id="forgot-modal" class="modal" aria-hidden="true">
+  <div data-close class="modal-backdrop"></div>
+  <div class="modal-card">
+    <button class="modal-close" id="close-forgot">&times;</button>
+    <h3>Reset Password</h3>
+    <p class="modal-desc">Enter your board license key to reset the admin password.</p>
+    <input type="text" id="forgot-license-input" placeholder="License Key" class="input">
+    <input type="password" id="forgot-new-password" placeholder="New Password" class="input">
+    <p id="forgot-error" class="error-text" style="display:none"></p>
+    <button id="forgot-submit" type="button" class="btn btn-primary">Reset Password</button>
+  </div>
+</div>
+
+<!-- Main App (hidden until login) -->
+<div id="app" style="display:none">
+  <div class="app-shell">
+    <!-- Sidebar Backdrop (mobile) -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="sidebar-head">
+        <img src="/logo.png" alt="" class="brand-logo" data-brand-logo>
+        <div class="brand-copy">
+          <span class="brand-name" id="admin-business-name">TarakiFi</span>
+          <span class="brand-hint">Admin Panel</span>
+        </div>
+        <button class="sidebar-collapse" id="sidebar-collapse-btn" title="Collapse sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+      </div>
+
+      <nav class="admin-nav">
+        <span class="nav-section-label">Main</span>
+        <button class="nav-item active" data-tab="dashboard">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Dashboard</span>
+            <span class="nav-hint">Overview & stats</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="sessions">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Sessions</span>
+            <span class="nav-hint">Active users & devices</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="vouchers">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a1 1 0 01-1 1 1 1 0 100 2 1 1 0 011 1v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2a1 1 0 011-1 1 1 0 100-2 1 1 0 01-1-1V6z"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Vouchers</span>
+            <span class="nav-hint">Generate & manage</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Settings</span>
+            <span class="nav-hint">Portal configuration</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="vendos">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h20V6a2 2 0 00-2-2H4zm18 5H2v9a2 2 0 002 2h16a2 2 0 002-2V9zM9 13a1 1 0 000 2h6a1 1 0 100-2H9z"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Coinslot</span>
+            <span class="nav-hint">Coin machines</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="system">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">System</span>
+            <span class="nav-hint">Info, password, reboot</span>
+          </span>
+        </button>
+
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="nav-item nav-danger" id="logout-btn">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Logout</span>
+            <span class="nav-hint">End session</span>
+          </span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content" id="main-content">
+
+      <!-- Mobile Header -->
+      <div class="mobile-header">
+        <button class="mobile-menu-btn" id="mobile-menu-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <img src="/logo.png" alt="" class="mobile-header-logo" data-brand-logo>
+        <span class="mobile-header-title" id="mobile-business-name">TarakiFi</span>
+      </div>
+
+      <!-- Page Header (dynamic) -->
+      <div class="page-header" id="page-header">
+        <div class="page-header-left">
+          <span class="page-kicker" id="page-kicker">Overview</span>
+          <span class="page-title" id="page-title">Dashboard</span>
+        </div>
+        <div class="page-header-actions" id="page-header-actions"></div>
+      </div>
+
+      <!-- Trial Mode Banner -->
+      <div id="trial-banner" style="display:none;background:linear-gradient(90deg,#92400e,#78350f);border:1px solid #d97706;border-radius:10px;padding:14px 20px;margin:0 20px 16px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:1.3rem;">&#9888;&#65039;</span>
+          <div>
+            <strong style="color:#fbbf24;font-size:.9rem;">TRIAL MODE</strong>
+            <p style="color:#fde68a;font-size:.78rem;margin:2px 0 0;">Activate a license key to remove this restriction.</p>
+          </div>
+        </div>
+        <span id="trial-countdown" style="font-family:monospace;font-size:.9rem;font-weight:700;color:#fbbf24;">--</span>
+      </div>
+
+      <div class="content-area">
+
+        <!-- Dashboard Tab -->
+        <section id="tab-dashboard" class="tab-content active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span class="stat-label">Active Users</span>
+              <span class="stat-value" id="stat-active">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Today's Earnings</span>
+              <span class="stat-value" id="stat-today-earnings">&#8369;0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Total Earnings</span>
+              <span class="stat-value" id="stat-total-earnings">&#8369;0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Transactions</span>
+              <span class="stat-value" id="stat-transactions">0</span>
+            </div>
+          </div>
+          <div class="widget">
+            <div class="widget-header">
+              <h3 class="widget-title" style="margin:0;border:none;padding:0">Board Health</h3>
+            </div>
+            <div class="health-grid">
+              <div class="health-item"><span class="health-label">Uptime</span><span class="health-value" id="health-uptime">--</span></div>
+              <div class="health-item"><span class="health-label">RAM</span><span class="health-value" id="health-ram">--</span><span class="health-detail" id="health-ram-detail">-- available</span></div>
+              <div class="health-item"><span class="health-label">ZRAM</span><span class="health-value" id="health-zram">--</span><span class="health-detail" id="health-zram-detail">-- used</span></div>
+              <div class="health-item"><span class="health-label">Flash</span><span class="health-value" id="health-flash">--</span></div>
+              <div class="health-item"><span class="health-label">CPU Load</span><span class="health-value" id="health-cpu">--</span></div>
+              <div class="health-item"><span class="health-label">WiFi Clients</span><span class="health-value" id="health-wifi">--</span></div>
+              <div class="health-item"><span class="health-label">WAN</span><span class="health-value" id="health-wan">--</span></div>
+            </div>
+          </div>
+          <div class="widget">
+            <div class="widget-header">
+              <h3 class="widget-title" style="margin:0;border:none;padding:0">Recent Transactions</h3>
+              <button id="reset-earnings-btn" class="btn btn-sm btn-danger-outline" type="button">Reset Earnings</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table" id="recent-tx-table">
+                <thead><tr><th>Time</th><th>MAC</th><th>Amount</th><th>Duration</th><th>Coins</th><th>Source</th></tr></thead>
+                <tbody id="recent-tx-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sessions Tab -->
+        <section id="tab-sessions" class="tab-content">
+          <div class="widget">
+            <div class="widget-header">
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                <h3 class="widget-title" style="margin:0 6px 0 0;border:none;padding:0">Sessions</h3>
+                <span class="badge badge-green">Active</span>
+                <span class="badge badge-blue">Paused</span>
+                <span class="badge badge-gray">Idle</span>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button id="clear-expired-sessions-btn" class="btn btn-sm btn-outline" type="button">Clear Expired</button>
+                <button id="forget-stale-devices-btn" class="btn btn-sm btn-outline" type="button">Forget Stale</button>
+                <button class="btn btn-sm btn-outline" onclick="loadSessions()">&#8635; Refresh</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Name/MAC</th><th>Time Left</th><th>IP</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="sessions-body"><tr><td colspan="5" style="text-align:center;padding:18px;color:var(--text2);font-size:.82rem;">Loading sessions...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="widget">
+            <div class="widget-header">
+              <h3 class="widget-title" style="margin:0;border:none;padding:0">Known Devices</h3>
+              <button class="btn btn-sm btn-outline" onclick="loadDevices()">&#8635; Refresh</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Name/MAC</th><th>Last Seen</th><th>Total Sessions</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="devices-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Vouchers Tab -->
+        <section id="tab-vouchers" class="tab-content">
+          <div class="widget">
+            <div class="widget-header">
+              <h3 class="widget-title" style="margin:0;border:none;padding:0">Voucher Console</h3>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="print-vouchers-btn" class="btn btn-sm btn-outline">&#128438; Print</button>
+                <button id="btn-delete-selected" class="btn btn-sm btn-danger" disabled style="opacity:.4;cursor:not-allowed">&#128465; Delete Selected (<span id="selected-count">0</span>)</button>
+                <button id="btn-delete-used" class="btn btn-sm btn-outline">Archive Used</button>
+                <button id="btn-gen-vouchers" class="btn btn-sm btn-primary">+ Generate</button>
+              </div>
+            </div>
+            <!-- Generate Form (hidden by default) -->
+            <div id="voucher-gen-form" class="voucher-gen-panel" style="display:none">
+              <div class="voucher-gen-grid">
+                <div class="form-row" style="margin:0">
+                  <label>Quantity</label>
+                  <input type="number" id="voucher-qty" class="input" value="10" min="1" max="500" step="1" inputmode="numeric">
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Duration</label>
+                  <div class="voucher-value-unit">
+                    <input type="number" id="voucher-duration" class="input" value="1" min="1" step="1" inputmode="numeric">
+                    <select id="voucher-duration-unit" class="input">
+                      <option value="minutes">Minutes</option>
+                      <option value="hours">Hours</option>
+                      <option value="days" selected>Days</option>
+                      <option value="months">Months</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Validity after redeem</label>
+                  <div class="voucher-value-unit">
+                    <input type="number" id="voucher-validity" class="input" value="30" min="1" step="1" inputmode="numeric">
+                    <select id="voucher-validity-unit" class="input">
+                      <option value="hours">Hours</option>
+                      <option value="days" selected>Days</option>
+                      <option value="weeks">Weeks</option>
+                      <option value="months">Months</option>
+                      <option value="never">Never</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Price (&#8369;)</label>
+                  <input type="number" id="voucher-price" class="input" value="5" min="0" step="0.5" inputmode="decimal">
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Label</label>
+                  <input type="text" id="voucher-label" class="input" placeholder="e.g. May 2026">
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Code format</label>
+                  <select id="voucher-code-type" class="input">
+                    <option value="numbers">Numbers only</option>
+                    <option value="letters">Letters only</option>
+                    <option value="mixed" selected>Mixed</option>
+                  </select>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Code length</label>
+                  <input type="number" id="voucher-code-length" class="input" value="8" min="4" max="8" step="1" inputmode="numeric">
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px;">
+                <button id="voucher-gen-submit" class="btn btn-primary">Generate</button>
+                <button id="voucher-gen-cancel" class="btn btn-outline">Cancel</button>
+              </div>
+            </div>
+            <!-- Select All toolbar (shown when grid has items) -->
+            <div id="voucher-select-bar" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.82rem;color:var(--text2)">
+                <input type="checkbox" id="voucher-select-all"> Select all unused
+              </label>
+            </div>
+            <!-- Voucher Table (print-friendly) -->
+            <div id="voucher-grid" class="voucher-grid" style="margin-top:8px;">
+              <table class="voucher-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Code</th>
+                    <th>Duration</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Validity</th>
+                    <th>Batch</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="vouchers-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Settings Tab -->
+        <section id="tab-settings" class="tab-content">
+          <div class="form-card">
+            <h3 class="form-title">WiFi Networks</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Set a separate customer WiFi name for each radio.</p>
+            <div class="form-row">
+              <label>2.4 GHz WiFi Name</label>
+              <input type="text" id="wifi-ssid-2g" class="input" maxlength="32" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="form-row">
+              <label>5 GHz WiFi Name</label>
+              <input type="text" id="wifi-ssid-5g" class="input" maxlength="32" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="notice-amber" style="margin-bottom:12px;">Saving will briefly disconnect WiFi devices. Reconnect using the new network name.</div>
+            <div class="form-actions">
+              <button type="button" id="save-wifi-btn" class="btn btn-primary">Save WiFi Names</button>
+              <span id="wifi-save-status" style="font-size:.82rem;color:var(--text2)"></span>
+            </div>
+          </div>
+          <!-- Portal Settings -->
+          <div class="form-card">
+            <h3 class="form-title">Portal Settings</h3>
+            <div class="form-row"><label>PisoWiFi / Business Name</label><input type="text" id="set-business-name" class="input" maxlength="64" placeholder="TarakiFi" autocomplete="organization"></div>
+            <div class="form-row"><label>Show Business Name on Portal</label><select id="set-show-business-name" class="input"><option value="1">Yes</option><option value="0">No</option></select></div>
+            <div class="form-row"><label>Portal Subtitle</label><input type="text" id="set-portal-name" class="input" maxlength="80" placeholder="Welcome and Enjoy!"></div>
+            <div class="form-row"><label>Portal Footer Text</label><input type="text" id="set-portal-footer-text" class="input" maxlength="120" placeholder=""></div>
+            <div class="form-row"><label>Show Rates Button</label><select id="set-show-rates" class="input"><option value="1">Yes</option><option value="0">No</option></select></div>
+            <div class="form-row"><label>Show Voucher Button</label><select id="set-show-voucher" class="input"><option value="1">Yes</option><option value="0">No</option></select></div>
+            <div class="form-row"><label>Show Insert Coin Button</label><select id="set-show-coin" class="input"><option value="1">Yes</option><option value="0">No</option></select></div>
+            <div class="form-row"><label>Hide Device Info</label><select id="set-hide-device-info" class="input"><option value="0">No (show IP/MAC)</option><option value="1">Yes (hide)</option></select></div>
+            <div class="form-row"><label>Hide Pause Button</label><select id="set-hide-pause-button" class="input"><option value="0">No (show)</option><option value="1">Yes (hide)</option></select></div>
+            <div class="form-row"><label>Portal Theme</label><select id="set-portal-theme" class="input"><option value="dark">Dark (default)</option><option value="light">Light</option></select></div>
+          </div>
+          <!-- Bandwidth Limit -->
+          <div class="form-card">
+            <h3 class="form-title">Bandwidth Limit</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Control how much download/upload speed each client (or all clients combined) can use.</p>
+            <div class="bw-mode-grid">
+              <label class="segmented-option" id="bw-card-off">
+                <input type="radio" name="bw_mode" id="bw-mode-off" value="off" onchange="_bwSelect('off')">
+                <strong>Off</strong>
+                <small>No speed limits &mdash; all clients share the full line.</small>
+              </label>
+              <label class="segmented-option" id="bw-card-per-client">
+                <input type="radio" name="bw_mode" id="bw-mode-per-client" value="per_client" onchange="_bwSelect('per_client')">
+                <strong>Per-client cap</strong>
+                <small>Each device gets its own download &amp; upload ceiling.</small>
+              </label>
+              <label class="segmented-option" id="bw-card-shared">
+                <input type="radio" name="bw_mode" id="bw-mode-shared" value="shared" onchange="_bwSelect('shared')">
+                <strong>Shared pool</strong>
+                <small>All clients share one total download &amp; upload bucket.</small>
+              </label>
+            </div>
+            <div id="bw-per-client" style="display:none;margin-top:14px;">
+              <div class="bw-grid-2">
+                <div class="form-row" style="margin:0">
+                  <label>Download cap per client (kbps)</label>
+                  <input type="number" id="bw-per-client-down" class="input" min="0" placeholder="e.g. 5120 = 5 Mbps">
+                  <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">0 = unlimited. 1024 kbps = 1 Mbps.</p>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Upload cap per client (kbps)</label>
+                  <input type="number" id="bw-per-client-up" class="input" min="0" placeholder="e.g. 1024 = 1 Mbps">
+                  <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">0 = unlimited.</p>
+                </div>
+              </div>
+              <div class="notice-amber" style="margin-top:10px;">Changes apply to active and future customer sessions.</div>
+            </div>
+            <div id="bw-shared" style="display:none;margin-top:14px;">
+              <div class="bw-grid-2">
+                <div class="form-row" style="margin:0">
+                  <label>Total download pool (kbps)</label>
+                  <input type="number" id="bw-total-down" class="input" min="0" placeholder="e.g. 10240 = 10 Mbps">
+                  <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">All clients share this bucket. 0 = unlimited.</p>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Total upload pool (kbps)</label>
+                  <input type="number" id="bw-total-up" class="input" min="0" placeholder="e.g. 5120 = 5 Mbps">
+                  <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">All clients share this bucket. 0 = unlimited.</p>
+                </div>
+              </div>
+              <div class="notice-amber" style="margin-top:10px;">The available speed is shared across all active customer devices.</div>
+            </div>
+            <div class="form-row" style="margin-top:14px;">
+              <label>Exempt MAC addresses (bypass speed limits)</label>
+              <input type="text" id="bw-exempt-macs" class="input" placeholder="e.g. aa:bb:cc:dd:ee:ff, 56:f5:db:ff:c8:42">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Comma-separated MACs for APs or infrastructure that should always get full speed.</p>
+            </div>
+          </div>
+          <!-- WiFi Rates -->
+          <div class="form-card">
+            <h3 class="form-title">WiFi Rates</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Choose minutes, hours, or days for each price point.</p>
+            <!-- Rate Tier Panel -->
+            <div class="rate-tier-panel">
+              <div class="rate-tier-panel-header">
+                <div>
+                  <span class="rate-tier-panel-label">Rate Tiers</span>
+                  <span class="rate-tier-panel-hint">Add one tier per price point</span>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-add-tier">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="margin-right:4px;vertical-align:-1px;"><path d="M8 2a1 1 0 011 1v4h4a1 1 0 010 2H9v4a1 1 0 01-2 0V9H3a1 1 0 010-2h4V3a1 1 0 011-1z"/></svg>Add tier
+                </button>
+              </div>
+              <div id="rate-rows" class="rate-tier-list"></div>
+              <div id="rate-empty" class="rate-tier-empty">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+                <span>No tiers yet &mdash; click <strong>Add tier</strong> to create one.</span>
+              </div>
+              <!-- Hidden raw textarea synced from rows -->
+              <textarea id="set-rates" style="display:none;"></textarea>
+            </div>
+          </div>
+          <!-- Pause Limit Rules -->
+          <div class="form-card">
+            <h3 class="form-title">Pause Limit Rules</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Limit how many times a customer can pause based on their session duration. Leave empty to allow unlimited pauses.</p>
+            <div class="rate-tier-panel">
+              <div class="rate-tier-panel-header">
+                <div>
+                  <span class="rate-tier-panel-label">Pause Rules</span>
+                  <span class="rate-tier-panel-hint">From (min) &ndash; To (min) &rarr; Max pauses</span>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-add-pause-rule">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="margin-right:4px;vertical-align:-1px;"><path d="M8 2a1 1 0 011 1v4h4a1 1 0 010 2H9v4a1 1 0 01-2 0V9H3a1 1 0 010-2h4V3a1 1 0 011-1z"/></svg>Add rule
+                </button>
+              </div>
+              <div id="pause-rule-rows" class="rate-tier-list"></div>
+              <div id="pause-rule-empty" class="rate-tier-empty">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+                <span>No rules &mdash; unlimited pauses allowed. Click <strong>Add rule</strong> to restrict.</span>
+              </div>
+              <textarea id="set-pause-rules" style="display:none;"></textarea>
+            </div>
+            <div class="form-row" style="margin-top:14px;">
+              <label>Pause Penalty (minutes)</label>
+              <input type="number" id="set-pause-penalty" class="input" min="0" max="60" step="1" style="max-width:120px;" placeholder="0">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Deduct this many minutes each time a customer pauses. Set to 0 to disable.</p>
+            </div>
+            <div class="form-row">
+              <label>Auto-Pause on Disconnect</label>
+              <select id="set-auto-pause" class="input">
+                <option value="0">Disabled</option>
+                <option value="1">Enabled &mdash; pause session when device disconnects</option>
+              </select>
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Automatically pause a customer's session when their device leaves the network.</p>
+            </div>
+          </div>
+          <!-- Free Time -->
+          <div class="form-card">
+            <h3 class="form-title">Free Time</h3>
+            <div class="form-row"><label>Enable Free Time</label><select id="set-free-enabled" class="input"><option value="0">Disabled</option><option value="1">Enabled</option></select></div>
+            <div class="form-row"><label>Free Minutes</label><input type="number" id="set-free-minutes" class="input" min="1" max="60"></div>
+            <div class="form-row"><label>Daily Limit (claims per device)</label><input type="number" id="set-free-limit" class="input" min="1" max="10"></div>
+          </div>
+          <!-- Coinslot Settings -->
+          <div class="form-card">
+            <h3 class="form-title">Coinslot Settings</h3>
+            <div class="form-row">
+              <label>Coin Modal Timeout (seconds)</label>
+              <input type="number" id="set-coin-timeout" class="input" min="10" max="300" step="1" style="max-width:120px;" placeholder="60">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">How long the Insert Coin / Add Time modal stays open before auto-cancelling.</p>
+            </div>
+            <div class="form-row">
+              <label>Busy Lock</label>
+              <select id="set-busy-lock" class="input">
+                <option value="1">Enabled &mdash; one customer at a time</option>
+                <option value="0">Disabled &mdash; allow concurrent inserts</option>
+              </select>
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">When enabled, other customers cannot open Insert Coin or Add Time while someone else is already in the modal.</p>
+            </div>
+            <div class="form-row">
+              <label>Max Empty Opens (rate limit)</label>
+              <input type="number" id="set-max-empty" class="input" min="1" max="20" step="1" style="max-width:120px;" placeholder="3">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Number of times a device can open the modal without inserting a coin before being temporarily blocked. Default: 3.</p>
+            </div>
+            <div class="form-row">
+              <label>Abuse Cooldown (seconds)</label>
+              <input type="number" id="set-empty-cooldown" class="input" min="30" max="3600" step="10" style="max-width:120px;" placeholder="120">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">How long a device is blocked after hitting the empty-open limit. Default: 120s (2 min).</p>
+            </div>
+            <div class="form-row">
+              <label>Flat Rate Override (min/peso)</label>
+              <input type="number" id="set-flat-rate" class="input" min="0" step="1" style="max-width:120px;" placeholder="e.g. 12">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Override rate tiers with a single flat rate (minutes per &#8369;1). Leave blank to use the rate tiers above.</p>
+            </div>
+          </div>
+          <!-- Content Filtering (embedded in Settings) -->
+          <div class="form-card">
+            <h3 class="form-title">Content Filtering</h3>
+            <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">Block selected domains for customer devices. Changes apply immediately.</p>
+            <div class="form-row" style="align-items:center">
+              <label>Enable Site Blocking</label>
+              <label class="toggle-switch"><input type="checkbox" id="filter-enabled"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="form-row" style="flex-direction:column;align-items:flex-start;gap:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+                <label style="margin:0">Blocked Domains</label>
+                <button class="btn btn-sm btn-outline" id="btn-add-domain">+ Add Domain</button>
+              </div>
+              <div id="domain-list" style="width:100%;display:flex;flex-direction:column;gap:5px"></div>
+              <div id="domain-add-row" style="display:none;width:100%;gap:8px;align-items:center" class="flex">
+                <input type="text" id="domain-input" class="input" placeholder="e.g. tiktok.com" style="flex:1">
+                <button class="btn btn-sm btn-primary" id="btn-confirm-domain">Add</button>
+                <button class="btn btn-sm btn-outline" id="btn-cancel-domain">Cancel</button>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border);margin:16px 0"></div>
+            <h3 class="form-title" style="font-size:.95rem">Upstream Access Protection</h3>
+            <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">Prevent customer devices from opening the upstream modem or router management page. The active gateway is protected automatically.</p>
+            <div class="form-row" style="align-items:center">
+              <label>Protect Upstream Gateway</label>
+              <label class="toggle-switch"><input type="checkbox" id="upstream-protection-enabled"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="form-row" style="flex-direction:column;align-items:flex-start;gap:6px">
+              <label>Additional Upstream Addresses</label>
+              <textarea id="blocked-upstream-ips" class="input" rows="3" placeholder="192.168.1.1&#10;192.168.100.0/24" style="width:100%;resize:vertical"></textarea>
+              <p style="font-size:.72rem;color:var(--text2);margin-top:2px">Optional. Enter one IPv4 address or network per line.</p>
+            </div>
+            <div style="border-top:1px solid var(--border);margin:16px 0"></div>
+            <h3 class="form-title" style="font-size:.95rem">Connection Sharing</h3>
+            <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">Prevent customers from sharing an active WiFi session with other devices.</p>
+            <div class="form-row" style="align-items:center">
+              <label>Prevent Connection Sharing</label>
+              <label class="toggle-switch"><input type="checkbox" id="anti-tethering-enabled"><span class="toggle-slider"></span></label>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
+              <button class="btn btn-sm btn-primary" id="btn-save-filtering">&#10003; Apply Network Rules</button>
+              <span id="filter-save-status" style="font-size:.82rem;color:var(--text2)"></span>
+            </div>
+          </div>
+
+          <button id="save-settings-btn" class="btn btn-primary btn-block">Save All Settings</button>
+        </section>
+
+        <!-- System Tab -->
+        <section id="tab-system" class="tab-content">
+          <div class="form-card">
+            <h3 class="form-title">System Info</h3>
+            <div class="info-grid" id="system-info-grid">
+              <div class="info-item"><span class="info-label">Hostname</span><span class="info-value" id="sys-hostname">--</span></div>
+              <div class="info-item"><span class="info-label">Model</span><span class="info-value" id="sys-model">--</span></div>
+              <div class="info-item"><span class="info-label">Firmware</span><span class="info-value" id="sys-firmware">--</span></div>
+              <div class="info-item"><span class="info-label">Build</span><span class="info-value" id="sys-build">--</span></div>
+              <div class="info-item"><span class="info-label">Kernel</span><span class="info-value" id="sys-kernel">--</span></div>
+              <div class="info-item"><span class="info-label">Uptime</span><span class="info-value" id="sys-uptime">--</span></div>
+              <div class="info-item"><span class="info-label">RAM Used</span><span class="info-value" id="sys-ram">--</span></div>
+              <div class="info-item"><span class="info-label">Flash Used</span><span class="info-value" id="sys-flash">--</span></div>
+              <div class="info-item"><span class="info-label">LAN IP</span><span class="info-value" id="sys-lan-ip">--</span></div>
+              <div class="info-item"><span class="info-label">WAN IP</span><span class="info-value" id="sys-wan-ip">--</span></div>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Internet Connection</h3>
+            <div class="form-row"><span class="info-label">Status:</span> <span id="wan-config-status" class="badge badge-gray">Checking</span></div>
+            <div class="form-row"><span class="info-label">Active Interface:</span> <span id="wan-config-interface" class="info-value">--</span></div>
+            <div class="form-row">
+              <label>Connection Type</label>
+              <select id="wan-connection-mode" class="input">
+                <option value="dhcp">DHCP (Automatic)</option>
+                <option id="wan-pppoe-option" value="pppoe" disabled>PPPoE</option>
+              </select>
+            </div>
+            <p id="wan-pppoe-unavailable" style="display:none;font-size:.78rem;color:var(--text2);margin:-4px 0 12px;">This router model supports DHCP WAN only.</p>
+            <div id="wan-pppoe-fields" style="display:none">
+              <div class="form-row">
+                <label>PPPoE Username</label>
+                <input type="text" id="wan-pppoe-username" class="input" maxlength="128" autocomplete="off" spellcheck="false">
+              </div>
+              <div class="form-row">
+                <label>PPPoE Password</label>
+                <div class="pw-field-wrap">
+                  <input type="password" id="wan-pppoe-password" class="input" maxlength="256" placeholder="Leave blank to keep current password" autocomplete="new-password">
+                  <button type="button" class="pw-eye" onclick="togglePw('wan-pppoe-password', this)" aria-label="Show/hide">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+              </div>
+              <p id="wan-password-status" style="font-size:.72rem;color:var(--text2);margin:-4px 0 12px;"></p>
+            </div>
+            <div class="notice-amber" style="margin-bottom:12px;">Saving restarts the internet connection briefly. Keep this admin page open on the TarakiFi LAN.</div>
+            <div class="form-actions">
+              <button id="save-wan-config-btn" class="btn btn-primary">Save Internet Connection</button>
+              <span id="wan-config-message" style="font-size:.82rem;color:var(--text2)"></span>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">WAN Troubleshooting Access</h3>
+            <p style="font-size:.82rem;color:var(--text2);margin-bottom:14px;">Temporarily allow a trusted operator to reach this router from its WAN network. Access closes automatically.</p>
+            <div class="form-row"><span class="info-label">Status:</span> <span id="wan-access-status" class="badge badge-gray">Closed</span></div>
+            <div class="form-row"><span class="info-label">WAN Admin Address:</span> <a id="wan-access-url" class="info-value" href="#" target="_blank" rel="noopener">--</a></div>
+            <div class="form-row"><span class="info-label">Access Ends:</span> <span id="wan-access-expires" class="info-value">--</span></div>
+            <div class="form-row">
+              <label>Access</label>
+              <select id="wan-access-mode" class="input">
+                <option value="admin">Admin Panel</option>
+                <option value="admin_ssh">Admin Panel + SSH (key required)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Trusted Source</label>
+              <input type="text" id="wan-access-source" class="input" placeholder="192.168.112.25 or 192.168.112.0/24" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="form-row">
+              <label>Duration</label>
+              <select id="wan-access-duration" class="input">
+                <option value="900">15 minutes</option>
+                <option value="3600">1 hour</option>
+                <option value="14400">4 hours</option>
+              </select>
+            </div>
+            <div class="form-actions">
+              <button id="wan-access-enable-btn" class="btn btn-primary">Open Temporarily</button>
+              <button id="wan-access-disable-btn" class="btn">Close Now</button>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Change Password</h3>
+            <div class="form-row">
+              <label>Current Password</label>
+              <div class="pw-field-wrap">
+                <input type="password" id="current-password" class="input" autocomplete="current-password">
+                <button type="button" class="pw-eye" onclick="togglePw('current-password', this)" aria-label="Show/hide">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>New Password</label>
+              <div class="pw-field-wrap">
+                <input type="password" id="new-password" class="input" placeholder="Min. 4 characters">
+                <button type="button" class="pw-eye" onclick="togglePw('new-password', this)" aria-label="Show/hide">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Confirm Password</label>
+              <div class="pw-field-wrap">
+                <input type="password" id="confirm-password" class="input" placeholder="Repeat password">
+                <button type="button" class="pw-eye" onclick="togglePw('confirm-password', this)" aria-label="Show/hide">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <button id="change-pw-btn" class="btn btn-primary">Change Password</button>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Reboot Schedule</h3>
+            <div class="form-row"><label>Auto Reboot</label><select id="set-reboot-enabled" class="input"><option value="0">Disabled</option><option value="1">Enabled</option></select></div>
+            <div class="form-row"><label>Time</label><input type="time" id="set-reboot-time" class="input" value="03:00"></div>
+            <div class="form-row"><label>Days</label><select id="set-reboot-days" class="input"><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekends">Weekends</option></select></div>
+            <button id="save-reboot-btn" class="btn btn-primary">Save Schedule</button>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">License</h3>
+            <div class="form-row"><label>License Key</label><input type="text" id="license-key" class="input" placeholder="Enter license key"></div>
+            <div class="form-row"><span class="info-label">Status:</span> <span id="license-status" class="badge badge-gray">--</span></div>
+            <div class="form-row"><span class="info-label">License Used:</span> <span id="license-used" class="info-value">Not configured</span></div>
+            <button id="activate-license-btn" class="btn btn-primary">Activate</button>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Cloud Backup</h3>
+            <p style="font-size:.82rem;color:var(--text2);margin-bottom:14px;">Keep a protected recovery copy of router settings, vouchers, and coinslot setup.</p>
+            <div class="form-row" style="align-items:center;">
+              <label>Enable Cloud Backup</label>
+              <label class="toggle-switch"><input type="checkbox" id="cloud-backup-enabled"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="info-grid" style="margin-bottom:14px;">
+              <div class="info-item"><span class="info-label">Status</span><span class="info-value" id="cloud-backup-status">Off</span></div>
+              <div class="info-item"><span class="info-label">Last Backup</span><span class="info-value" id="cloud-backup-last">--</span></div>
+              <div class="info-item"><span class="info-label">Backups</span><span class="info-value" id="cloud-backup-total">--</span></div>
+              <div class="info-item"><span class="info-label">Latest Version</span><span class="info-value" id="cloud-backup-version">--</span></div>
+            </div>
+            <div class="form-actions">
+              <button id="cloud-backup-now-btn" class="btn btn-primary">Backup Now</button>
+              <button id="cloud-restore-btn" class="btn btn-outline">Restore from Cloud</button>
+              <span id="cloud-backup-message" style="font-size:.82rem;color:var(--text2);"></span>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Branding</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Use genuine MP3/WAV/OGG audio and PNG/JPEG/WebP images. File limits are enforced before upload.</p>
+            <div class="form-row" style="align-items:center;gap:8px;"><label>Insert Sound / Music (max 900KB)</label><input type="file" id="upload-coin-sound" accept=".mp3,.wav,.ogg" style="font-size:.8rem;flex:1;"><button class="btn btn-sm" onclick="uploadAsset('coin_sound','upload-coin-sound')">Upload</button><span id="coin-sound-status" class="asset-feedback">MP3, WAV, or OGG.</span></div>
+            <div class="form-row" style="align-items:center;gap:8px;"><label>Coin Detect Sound (max 200KB)</label><input type="file" id="upload-tick-sound" accept=".mp3,.wav,.ogg" style="font-size:.8rem;flex:1;"><button class="btn btn-sm" onclick="uploadAsset('tick_sound','upload-tick-sound')">Upload</button><span id="tick-sound-status" class="asset-feedback">MP3, WAV, or OGG.</span></div>
+            <div class="form-row" style="align-items:center;gap:8px;"><label>Logo (max 500KB)</label><input type="file" id="upload-logo" accept=".png,.jpg,.jpeg,.webp" style="font-size:.8rem;flex:1;"><button class="btn btn-sm" onclick="uploadAsset('logo','upload-logo')">Upload</button><span id="logo-status" class="asset-feedback">Recommended 256x256; allowed 64x64 to 1024x1024.</span></div>
+            <div class="asset-preview-row"><img id="logo-upload-preview" class="asset-preview logo" alt="Logo preview"></div>
+            <div class="form-row" style="align-items:center;gap:8px;"><label>Hero Banner (max 900KB)</label><input type="file" id="upload-hero" accept=".png,.jpg,.jpeg,.webp" style="font-size:.8rem;flex:1;"><button class="btn btn-sm" onclick="uploadAsset('hero','upload-hero')">Upload</button><span id="hero-status" class="asset-feedback">Recommended 1280x720; allowed 640x320 to 1920x1080; ratio 1.5:1 to 2:1.</span></div>
+            <div class="asset-preview-row"><img id="hero-upload-preview" class="asset-preview hero" alt="Hero preview"></div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Firmware Update</h3>
+            <p style="font-size:.82rem;color:var(--text2);margin-bottom:14px;">Check and install the correct TarakiFi firmware for this router.</p>
+            <div class="info-grid" style="margin-bottom:14px;">
+              <div class="info-item"><span class="info-label">Current Version</span><span class="info-value" id="ota-current-ver">--</span></div>
+              <div class="info-item"><span class="info-label">Latest Available</span><span class="info-value" id="ota-latest-ver">--</span></div>
+              <div class="info-item"><span class="info-label">Status</span><span class="info-value" id="ota-status">Not checked</span></div>
+            </div>
+            <div id="ota-notes" style="display:none;font-size:.82rem;color:var(--text2);margin-bottom:14px;padding:10px;background:var(--bg2);border-radius:8px;white-space:pre-wrap;"></div>
+            <div id="ota-progress" style="display:none;margin-bottom:14px;">
+              <div style="background:var(--bg2);border-radius:6px;height:8px;overflow:hidden;"><div id="ota-progress-bar" style="height:100%;background:var(--accent);width:0%;transition:width .3s;"></div></div>
+              <span id="ota-progress-text" style="font-size:.75rem;color:var(--text2);"></span>
+            </div>
+            <div class="form-actions">
+              <button id="ota-check-btn" class="btn btn-primary">Check for Updates</button>
+              <button id="ota-update-btn" class="btn btn-primary" style="display:none;">Update Now</button>
+            </div>
+            <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
+              <h4 style="font-size:.92rem;margin-bottom:10px;color:var(--text);">Manual Firmware</h4>
+              <div class="form-row" style="align-items:center;gap:8px;">
+                <label>Firmware .bin</label>
+                <input type="file" id="manual-firmware-file" accept=".bin,application/octet-stream" style="font-size:.8rem;flex:1;">
+              </div>
+              <div class="form-row">
+                <label>Install Mode</label>
+                <select id="manual-firmware-mode" class="input">
+                  <option value="fresh">Fresh Install</option>
+                  <option value="preserve">Preserve Settings</option>
+                </select>
+              </div>
+              <div id="manual-update-progress" style="display:none;margin-bottom:12px;">
+                <div style="background:var(--bg2);border-radius:6px;height:8px;overflow:hidden;"><div id="manual-update-progress-bar" style="height:100%;background:var(--accent);width:0%;transition:width .3s;"></div></div>
+              </div>
+              <div class="form-actions">
+                <button id="manual-update-btn" class="btn btn-danger">Upload &amp; Install</button>
+                <span id="manual-update-message" style="font-size:.82rem;color:var(--text2);"></span>
+              </div>
+            </div>
+          </div>
+          <div class="form-card danger-zone">
+            <h3 class="form-title">Power</h3>
+            <div class="form-actions">
+              <button id="reboot-btn" class="btn btn-danger">Reboot</button>
+              <button id="shutdown-btn" class="btn btn-danger-outline">Shutdown</button>
+            </div>
+          </div>
+                </section>
+
+        <!-- ── Coinslot Tab ─────────────────────────────────────────── -->
+        <section id="tab-vendos" class="tab-content">
+          <div class="section-header">
+            <h2 class="section-title">Coinslot <span id="vendo-count" style="font-size:.8rem;font-weight:400;color:var(--text2)"></span></h2>
+            <button id="btn-add-vendo" class="btn btn-primary btn-sm">+ Add Coinslot</button>
+          </div>
+          <p style="color:var(--text2);font-size:.85rem;margin-bottom:12px">This router supports one NodeMCU coinslot. Unbind the current coinslot before pairing a replacement.</p>
+          <div class="form-card" id="vendo-empty">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:.3;margin:0 auto 12px"><path d="M4 4a2 2 0 00-2 2v1h20V6a2 2 0 00-2-2H4zm18 5H2v9a2 2 0 002 2h16a2 2 0 002-2V9zM9 13a1 1 0 000 2h6a1 1 0 100-2H9z"/></svg>
+              <p style="color:var(--text2);font-size:.9rem">No coinslot nodes registered yet.<br>Click <strong>Add Coinslot</strong> to get a bind code, then configure the NodeMCU firmware.</p>
+            </div>
+          </div>
+          <div class="table-wrap" style="display:none" id="vendos-table-wrap">
+            <table class="table" style="min-width:700px">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Firmware</th>
+                  <th>Node ID</th>
+                  <th>IP</th>
+                  <th>Mode</th>
+                  <th>Pins (C/R)</th>
+                  <th style="text-align:center">Coins</th>
+                  <th>Status</th>
+                  <th>Last Seen</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="vendos-body"></tbody>
+            </table>
+          </div>
+          <!-- Bind Code Modal -->
+          <div id="bind-modal" class="modal-overlay" style="display:none" aria-hidden="true">
+            <div class="modal-box" style="max-width:420px">
+              <button class="modal-close" id="close-bind-modal" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text2)">&times;</button>
+              <h3 class="modal-title">&#128268; Add Coinslot</h3>
+              <p style="font-size:.85rem;color:var(--text2);margin-bottom:16px">Enter this code in the NodeMCU setup page. It expires in 10 minutes.</p>
+              <div style="text-align:center;margin:20px 0">
+                <div id="bind-code-display" style="font-size:2.5rem;font-weight:700;letter-spacing:.3em;font-family:monospace;color:var(--accent)">------</div>
+                <div id="bind-timer" style="font-size:.8rem;color:var(--text2);margin-top:8px">Generating...</div>
+              </div>
+              <div class="modal-actions" style="justify-content:center;gap:10px">
+                <button id="btn-regen-bind" class="btn btn-outline btn-sm">&#8635; New Code</button>
+                <button class="btn btn-outline btn-sm" id="close-bind-modal2" onclick="document.getElementById('bind-modal').style.display='none'">Close</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+      </div><!-- /content-area -->
+    </div><!-- /main-content -->
+  </div><!-- /app-shell -->
+</div><!-- /app -->
+
+<div id="reboot-overlay" class="modal" style="display:none" aria-live="polite">
+  <div class="modal-backdrop"></div>
+  <div class="modal-card" style="text-align:center">
+    <h3>Restarting</h3>
+    <p id="reboot-overlay-msg" class="modal-desc" style="margin:10px 0 0">Reconnecting...</p>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="app.js?v=1.2.16-remote1"></script>
+</body>
+</html>

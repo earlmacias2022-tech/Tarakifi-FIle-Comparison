@@ -1,0 +1,4 @@
+/etc/capabilities/wpad.json
+/etc/init.d/wpad
+/lib/netifd/dhcp-get-server.sh
+/usr/share/acl.d/wpad_acl.json

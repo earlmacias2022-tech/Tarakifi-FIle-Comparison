@@ -1,0 +1,8 @@
+https://downloads.openwrt.org/releases/25.12.5/targets/ath79/generic/packages/packages.adb
+https://downloads.openwrt.org/releases/25.12.5/packages/mips_24kc/base/packages.adb
+https://downloads.openwrt.org/releases/25.12.5/targets/ath79/generic/kmods/6.12.94-1-f58943ca8e5ad0ff489b492a7983a376/packages.adb
+https://downloads.openwrt.org/releases/25.12.5/packages/mips_24kc/luci/packages.adb
+https://downloads.openwrt.org/releases/25.12.5/packages/mips_24kc/packages/packages.adb
+https://downloads.openwrt.org/releases/25.12.5/packages/mips_24kc/routing/packages.adb
+https://downloads.openwrt.org/releases/25.12.5/packages/mips_24kc/telephony/packages.adb
+https://downloads.openwrt.org/releases/25.12.5/packages/mips_24kc/video/packages.adb

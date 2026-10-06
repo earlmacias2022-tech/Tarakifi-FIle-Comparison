@@ -1,0 +1,16 @@
+#!/bin/sh
+
+case "$ACTION" in
+pressed)
+    return 3
+;;
+released)
+    seen=${SEEN:-0}
+    [ "$seen" -ge 3 ] || return 0
+    logger -t tarakifi "Physical reset button requested a safe reboot"
+    sync
+    reboot
+;;
+esac
+
+return 0

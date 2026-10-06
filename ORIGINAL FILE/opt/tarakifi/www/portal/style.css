@@ -1,0 +1,475 @@
+/* TarakiFi OpenWrt Portal — Premium Dark Theme
+   Black bg, orange/amber accents, HUD-style borders, glow pulse.
+   Optimized for low-end phones: no frameworks, pure CSS. */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; min-height: 100%;
+  background: #0a0a0a;
+  color: #e0d0b0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 16px; line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+}
+body::before {
+  content: "";
+  position: fixed; inset: 0 0 auto;
+  height: 200px;
+  background: linear-gradient(180deg, #1a0f00 0%, #0a0a0a 100%);
+  z-index: -1;
+}
+.wrap {
+  min-height: 100vh;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 14px 12px 26px;
+}
+.card {
+  width: 100%; max-width: 430px;
+  margin: 8px 0 20px; padding: 20px;
+  background: #111111;
+  border: 1px solid #ff8c00;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(255,140,0,0.15), 0 14px 40px rgba(0,0,0,0.8);
+  position: relative;
+}
+/* HUD corner accents */
+.card::before, .card::after {
+  content: ''; position: absolute;
+  width: 24px; height: 24px;
+  border-color: #ff8c00; border-style: solid;
+  pointer-events: none;
+}
+.card::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.card::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+.premium-hero {
+  width: calc(100% + 40px);
+  max-height: 200px; overflow: hidden;
+  border-radius: 9px 9px 0 0;
+  margin: -20px -20px 16px -20px;
+  position: relative;
+}
+.premium-hero > #portal-hero-image {
+  width: 100%; height: 200px;
+  object-fit: cover; display: block;
+}
+.premium-hero > .portal-logo {
+  position: absolute;
+  top: 12px; left: 12px; z-index: 2;
+  display: block; width: 56px; height: 56px;
+  object-fit: contain; box-sizing: border-box;
+  margin: 0; padding: 5px;
+  border: 1px solid rgba(255,255,255,.42);
+  border-radius: 8px;
+  background: rgba(0,0,0,.58);
+  box-shadow: 0 3px 12px rgba(0,0,0,.35);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.portal-header { text-align: center; margin-bottom: 14px; }
+.portal-header h1 {
+  margin: 0; overflow-wrap: anywhere; font-size: 1.3rem; font-weight: 800;
+  color: #ff8c00;
+}
+.portal-subtitle {
+  margin: 4px 0 8px; overflow-wrap: anywhere;
+  color: #e0d0b0; font-size: .88rem; font-weight: 600;
+}
+
+/* ── WAN Badge ───────────────────────────────────────────────────────────── */
+.wan-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.wan-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block; flex-shrink: 0;
+}
+.wan-badge--checking { background: #1a1a1a; color: #8a7a5a; }
+.wan-badge--checking .wan-dot { background: #8a7a5a; }
+.wan-badge--online { background: #0d1a00; color: #4ade80; }
+.wan-badge--online .wan-dot { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.25); }
+.wan-badge--offline { background: #1a0800; color: #ff4444; }
+.wan-badge--offline .wan-dot { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,.25); }
+
+/* ── Status Panel ────────────────────────────────────────────────────────── */
+.status-panel {
+  text-align: center; padding: 14px;
+  border: 1px solid #ff8c00; border-radius: 8px;
+  background: #0d0d0d; margin-bottom: 14px;
+  position: relative;
+}
+.status-panel::before, .status-panel::after {
+  content: ''; position: absolute;
+  width: 12px; height: 12px;
+  border-color: #ff8c00; border-style: solid;
+  pointer-events: none;
+}
+.status-panel::before { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+.status-panel::after { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+.status-panel.disconnected { border-color: #cc3300; background: #1a0800; }
+.status-panel.disconnected::before, .status-panel.disconnected::after { border-color: #cc3300; }
+.status-panel.connected { border-color: #ff8c00; background: #0d1a00; }
+.status-panel.paused { border-color: #ff8c00; background: #1a1400; }
+.status-label { display: block; font-size: .75rem; color: #8a7a5a; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.status-value { display: block; font-size: 1.1rem; font-weight: 700; }
+.disconnected .status-value { color: #ff4444; }
+.connected .status-value, .paused .status-value { color: #ff8c00; }
+.status-detail { display: block; font-size: .85rem; color: #ffb347; margin-top: 4px; }
+.status-detail strong { color: #ff8c00; }
+.validity-notice { display: block; font-size: .75rem; color: #b9a78b; margin-top: 5px; }
+.validity-notice strong { color: #ffd08a; font-weight: 600; }
+
+/* ── Device Panel ────────────────────────────────────────────────────────── */
+.device-panel {
+  display: flex; gap: 8px; margin-bottom: 14px;
+}
+.device-panel > div {
+  flex: 1; padding: 10px; border-radius: 6px;
+  background: #0d0d0d; text-align: center;
+}
+.device-label { display: block; font-size: .7rem; color: #8a7a5a; text-transform: uppercase; letter-spacing: .04em; }
+.device-value { display: block; font-size: .8rem; color: #e0d0b0; margin-top: 2px; word-break: break-all; }
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+.section { margin-bottom: 12px; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.big-coin-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px 20px;
+  border: none; border-radius: 8px;
+  font-size: 1rem; font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #cc6600 0%, #ff8c00 50%, #ffaa33 100%);
+  color: #000;
+  box-shadow: 0 6px 20px rgba(255,140,0,0.4);
+  transition: box-shadow .2s cubic-bezier(.23,1,.32,1), transform .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.big-coin-btn:hover:not(:disabled) {
+  box-shadow: 0 8px 28px rgba(255,140,0,0.6);
+  transform: translateY(-1px);
+}
+.big-coin-btn:active:not(:disabled) {
+  background: linear-gradient(135deg, #993d00 0%, #cc6600 100%);
+  box-shadow: none; transform: scale(0.97);
+}
+.big-coin-btn:disabled { background: #1a1a1a; color: #555; box-shadow: none; cursor: not-allowed; }
+.btn-icon { width: 20px; height: 20px; flex-shrink: 0; }
+.secondary-btn {
+  background: #111111 !important; color: #ff8c00 !important;
+  border: 1px solid #ff8c00 !important;
+  box-shadow: 0 0 10px rgba(255,140,0,0.15) !important;
+}
+.secondary-btn:hover:not(:disabled) { background: #1a0f00 !important; box-shadow: 0 0 18px rgba(255,140,0,0.3) !important; }
+.secondary-btn:active:not(:disabled) { background: #ff8c00 !important; color: #000 !important; }
+
+/* ── Premium Rates Button ────────────────────────────────────────────────── */
+.premium-rates-btn {
+  background: #111111 !important; color: #ff8c00 !important;
+  border: 1px solid #ff8c00 !important;
+  box-shadow: 0 0 10px rgba(255,140,0,0.15) !important;
+  flex-wrap: wrap;
+}
+.premium-rates-btn:active:not(:disabled) { transform: scale(0.97); }
+.premium-rates-hint {
+  display: block; width: 100%;
+  font-size: .65rem; font-weight: 400;
+  letter-spacing: .04em; opacity: 0.7;
+  color: #ffb84d; margin-top: 2px;
+}
+
+/* ── Rates Table ─────────────────────────────────────────────────────────── */
+.rates {
+  margin-top: 10px; border-radius: 6px; overflow: hidden;
+  border: 1px solid #3d2800;
+}
+.rates table { width: 100%; border-collapse: collapse; }
+.rates th {
+  background: #0d0d0d; color: #8a7a5a;
+  font-size: .75rem; text-transform: uppercase;
+  letter-spacing: .04em; padding: 8px 12px;
+  text-align: left;
+}
+.rates td {
+  padding: 10px 12px; font-size: .9rem;
+  border-top: 1px solid #3d2800; color: #e0d0b0;
+}
+.rates tr:nth-child(even) td { background: #0a0a0a; }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.foot {
+  margin-top: 18px; padding-top: 12px;
+  border-top: 1px solid #3d2800;
+  text-align: center; font-size: .75rem; color: #8a7a5a;
+}
+.foot p { margin: 0; }
+.operator-footer {
+  margin-bottom: 7px !important; overflow-wrap: anywhere;
+  color: #e0d0b0; font-size: .9rem; font-weight: 600;
+}
+.foot a { color: #ff8c00; font-weight: 700; text-decoration: none; }
+.foot a:hover, .foot a:focus-visible { text-decoration: underline; }
+
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+.modal {
+  position: fixed; inset: 0;
+  display: none; align-items: center; justify-content: center;
+  padding: 1rem; z-index: 100;
+}
+.modal.open { display: flex; }
+.modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(4px);
+}
+.modal-card {
+  position: relative; z-index: 1;
+  background: #111111; border: 1px solid #ff8c00;
+  border-radius: 10px; padding: 24px 20px;
+  width: 100%; max-width: 340px;
+  text-align: center;
+}
+.modal-close {
+  position: absolute; top: 10px; right: 14px;
+  background: #0d0d0d; border: none; border-radius: 50%;
+  width: 28px; height: 28px;
+  color: #8a7a5a; font-size: 1.2rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { background: #1a0f00; color: #ff8c00; }
+.modal-title { color: #ff8c00; font-size: 1rem; font-weight: 600; margin: 12px 0 8px; }
+.modal-balance { margin: 8px 0; }
+.balance { font-size: 2.2rem; font-weight: 800; color: #ff8c00; transition: transform .15s; }
+.balance.bump { transform: scale(1.15); color: #ffb347; }
+.unit { font-size: 1rem; color: #8a7a5a; }
+.modal-coin-count { font-size: .85rem; color: #8a7a5a; margin: 4px 0; }
+.modal-countdown { font-size: .85rem; color: #8a7a5a; margin: 8px 0 16px; }
+#countdown { font-weight: 700; color: #ff8c00; font-size: 1.1rem; }
+.connect-btn {
+  display: block; width: 100%; padding: 12px;
+  border: none; border-radius: 8px;
+  font-size: 1rem; font-weight: 800;
+  background: linear-gradient(135deg, #cc6600 0%, #ff8c00 50%, #ffaa33 100%);
+  color: #000; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(255,140,0,0.4);
+  transition: transform .1s;
+}
+.connect-btn:active:not(:disabled) { transform: scale(0.97); }
+.connect-btn:disabled { background: #1a1a1a; color: #555; box-shadow: none; cursor: not-allowed; }
+/* Spinner */
+.spinner {
+  width: 36px; height: 36px; margin: 0 auto;
+  border: 3px solid #3d2800; border-top-color: #ff8c00;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Mini browser detection ──────────────────────────────────────────────── */
+.mini-browser-guide { display: none; text-align: center; margin-top: 12px; }
+.mini-browser-guide a {
+  color: #ff8c00; text-decoration: underline; font-weight: 600;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (min-width: 480px) {
+  .wrap { padding: 2rem; }
+}
+@media (max-width: 360px) {
+  .card { padding: 14px; }
+  .premium-hero { width: calc(100% + 28px); margin: -14px -14px 12px -14px; }
+  .premium-hero > .portal-logo { top: 9px; left: 9px; width: 48px; height: 48px; padding: 4px; }
+  .big-coin-btn { padding: 12px 16px; font-size: .9rem; }
+}
+
+/* ── Logo ───────────────────────────────────────────────────────────────── */
+
+/* ── Free Time Button ───────────────────────────────────────────────────── */
+.free-btn {
+  background: linear-gradient(135deg, #004d00, #003300) !important;
+  border-color: #00cc44 !important;
+  color: #44ff88 !important;
+}
+.free-btn:active {
+  background: #002200 !important;
+}
+.free-time-hint {
+  display: block;
+  font-size: .7rem;
+  opacity: .7;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+/* ── Voucher Button ─────────────────────────────────────────────────────── */
+.voucher-btn {
+  background: linear-gradient(135deg, #1a0040, #0d0020) !important;
+  border-color: #8844ff !important;
+  color: #bb88ff !important;
+}
+.voucher-btn:active {
+  background: #0a0015 !important;
+}
+
+/* ── Voucher Modal ──────────────────────────────────────────────────────── */
+.voucher-input {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  margin: 16px 0 8px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1.1rem;
+  text-align: center;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  outline: none;
+}
+.voucher-input:focus {
+  border-color: #ff8c00;
+  box-shadow: 0 0 8px rgba(255,140,0,0.3);
+}
+.voucher-error {
+  color: #ff4444;
+  font-size: .85rem;
+  text-align: center;
+  margin: 4px 0;
+}
+
+/* ── Modal Balance Label ─────────────────────────────────────────────────── */
+.modal-balance-label {
+  font-size: .75rem; color: #8a7a5a;
+  margin: -4px 0 6px; text-align: center;
+}
+
+/* ── Theme Toggle Button ─────────────────────────────────────────────────── */
+.theme-toggle-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: 1px solid #3d2800;
+  border-radius: 20px; padding: 4px 12px;
+  color: #8a7a5a; font-size: .75rem; cursor: pointer;
+  margin-bottom: 8px;
+  transition: border-color .2s, color .2s;
+}
+.theme-toggle-btn:hover { border-color: #ff8c00; color: #ff8c00; }
+
+/* ── Light Theme ─────────────────────────────────────────────────────────── */
+body.theme-light {
+  background: #f5f5f0;
+  color: #1a1a1a;
+}
+body.theme-light::before {
+  background: linear-gradient(180deg, #fff8ee 0%, #f5f5f0 100%);
+}
+body.theme-light .card {
+  background: #ffffff;
+  border-color: #e67e00;
+  box-shadow: 0 0 20px rgba(230,126,0,0.1), 0 4px 20px rgba(0,0,0,0.08);
+}
+body.theme-light .card::before,
+body.theme-light .card::after { border-color: #e67e00; }
+body.theme-light .status-panel {
+  background: #fafafa; border-color: #e67e00;
+}
+body.theme-light .status-panel::before,
+body.theme-light .status-panel::after { border-color: #e67e00; }
+body.theme-light .status-panel.disconnected { background: #fff5f5; border-color: #cc3300; }
+body.theme-light .status-panel.disconnected::before,
+body.theme-light .status-panel.disconnected::after { border-color: #cc3300; }
+body.theme-light .status-panel.connected { background: #f0fff4; border-color: #e67e00; }
+body.theme-light .status-panel.paused { background: #fffbf0; border-color: #e67e00; }
+body.theme-light .status-label { color: #888; }
+body.theme-light .disconnected .status-value { color: #cc3300; }
+body.theme-light .connected .status-value,
+body.theme-light .paused .status-value { color: #e67e00; }
+body.theme-light .status-detail { color: #b36200; }
+body.theme-light .status-detail strong { color: #e67e00; }
+body.theme-light .validity-notice { color: #6b7280; }
+body.theme-light .validity-notice strong { color: #9a4d00; }
+body.theme-light .device-panel > div { background: #f0f0ea; }
+body.theme-light .device-label { color: #888; }
+body.theme-light .device-value { color: #1a1a1a; }
+body.theme-light .portal-header h1 { color: #e67e00; }
+body.theme-light .wan-badge--checking { background: #eee; color: #888; }
+body.theme-light .wan-badge--online { background: #e8fdf0; color: #166534; }
+body.theme-light .wan-badge--offline { background: #fef2f2; color: #991b1b; }
+body.theme-light .big-coin-btn {
+  background: linear-gradient(135deg, #c26000 0%, #e67e00 50%, #f59e0b 100%);
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(230,126,0,0.35);
+}
+body.theme-light .secondary-btn {
+  background: #1a6bbf !important; color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(26,107,191,0.3) !important;
+}
+body.theme-light .secondary-btn:hover:not(:disabled) { background: #1558a0 !important; }
+body.theme-light .secondary-btn:active:not(:disabled) { background: #0f4080 !important; }
+body.theme-light .premium-rates-btn {
+  background: #cc2200 !important; color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(204,34,0,0.3) !important;
+}
+body.theme-light .premium-rates-btn:hover:not(:disabled) { background: #aa1a00 !important; }
+body.theme-light .premium-rates-hint { color: #c26000; }
+body.theme-light .rates { border-color: #e0c090; }
+body.theme-light .rates th { background: #fafafa; color: #888; }
+body.theme-light .rates td { color: #1a1a1a; border-top-color: #e0c090; }
+body.theme-light .rates tr:nth-child(even) td { background: #f9f9f5; }
+body.theme-light .foot { border-top-color: #e0c090; color: #888; }
+body.theme-light .portal-subtitle, body.theme-light .operator-footer { color: #555; }
+body.theme-light .foot a { color: #e67e00; }
+body.theme-light .theme-toggle-btn { border-color: #e0c090; color: #888; }
+body.theme-light .theme-toggle-btn:hover { border-color: #e67e00; color: #e67e00; }
+body.theme-light .free-btn {
+  background: #1a8a3a !important; color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(26,138,58,0.3) !important;
+}
+body.theme-light .free-btn:active { background: #126628 !important; }
+body.theme-light .voucher-btn {
+  background: #5533cc !important; color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(85,51,204,0.3) !important;
+}
+body.theme-light .voucher-btn:active { background: #3d22aa !important; }
+body.theme-light .connect-btn {
+  background: linear-gradient(135deg, #c26000 0%, #e67e00 50%, #f59e0b 100%) !important;
+  color: #ffffff !important;
+}
+body.theme-light .modal-card { background: #ffffff; border-color: #e67e00; }
+body.theme-light .modal-close { background: #f5f5f0; color: #888; }
+body.theme-light .modal-close:hover { background: #fff8ee; color: #e67e00; }
+body.theme-light .modal-title { color: #e67e00; }
+body.theme-light .balance { color: #e67e00; }
+body.theme-light .balance.bump { color: #c26000; }
+body.theme-light .unit { color: #888; }
+body.theme-light .modal-balance-label { color: #888; }
+body.theme-light .modal-coin-count { color: #888; }
+body.theme-light .modal-countdown { color: #888; }
+body.theme-light #countdown { color: #e67e00; }
+body.theme-light .spinner { border-color: #e0c090; border-top-color: #e67e00; }
+body.theme-light .voucher-input { background: #fafafa; border-color: #ccc; color: #1a1a1a; }
+body.theme-light .voucher-input:focus { border-color: #e67e00; box-shadow: 0 0 8px rgba(230,126,0,0.2); }
+
+/* Payment actions must remain visibly unavailable across every theme. */
+body .big-coin-btn:disabled {
+  background: #d8dadd !important;
+  color: #6b7280 !important;
+  border: 1px solid #b9bec5 !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: .72;
+  transform: none !important;
+}
+body.theme-premium-dark .big-coin-btn:disabled {
+  background: #171717 !important;
+  color: #666 !important;
+  border-color: #333 !important;
+}

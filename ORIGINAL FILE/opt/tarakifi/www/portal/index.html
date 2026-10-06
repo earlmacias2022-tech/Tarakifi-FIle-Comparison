@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="application-name" content="TarakiFi">
+<meta name="apple-mobile-web-app-title" content="TarakiFi">
+<meta name="description" content="Connect to TarakiFi WiFi.">
+<title>TarakiFi - TarakiFi WiFi</title>
+<link rel="stylesheet" href="style.css?v=20260803b">
+<script>
+(function(){
+  var KEY='tarakifi_device_id';
+
+  function valid(value){
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||''));
+  }
+  function readCookie(name){
+    try{
+      var match=document.cookie.match(new RegExp('(?:^|;\\s*)'+name+'=([^;]+)'));
+      return match?decodeURIComponent(match[1]):'';
+    }catch(e){return ''}
+  }
+  function generate(){
+    var cryptoApi=window.crypto||window.msCrypto;
+    if(!cryptoApi)return '';
+    if(typeof cryptoApi.randomUUID==='function')return cryptoApi.randomUUID();
+    if(typeof cryptoApi.getRandomValues!=='function')return '';
+    var bytes=new Uint8Array(16),hex=[];
+    cryptoApi.getRandomValues(bytes);
+    bytes[6]=(bytes[6]&15)|64;
+    bytes[8]=(bytes[8]&63)|128;
+    for(var i=0;i<bytes.length;i++)hex.push(('0'+bytes[i].toString(16)).slice(-2));
+    return hex.slice(0,4).join('')+'-'+hex.slice(4,6).join('')+'-'+
+      hex.slice(6,8).join('')+'-'+hex.slice(8,10).join('')+'-'+hex.slice(10).join('');
+  }
+
+  var id='';
+  try{id=localStorage.getItem(KEY)||''}catch(e){}
+  if(!valid(id))id=readCookie(KEY);
+  if(!valid(id))id=generate();
+  if(valid(id)){
+    try{localStorage.setItem(KEY,id)}catch(e){}
+    document.cookie=KEY+'='+encodeURIComponent(id)+';path=/;max-age=2592000;SameSite=Lax';
+  }else{id=''}
+
+  window.__TARAKIFI_DEVICE_ID__=id;
+  window.__TARAKIFI_FINGERPRINT__='';
+  window.__TARAKIFI_ROAM_FP__='';
+
+  function handshake(attempt){
+    if(!id)return;
+    try{
+      var req=new XMLHttpRequest();
+      req.open('GET','/api/portal/status?device_id='+encodeURIComponent(id)+'&_='+(new Date().getTime()),true);
+      req.timeout=4000;
+      req.onreadystatechange=function(){
+        if(req.readyState!==4)return;
+        var data=null;
+        try{data=JSON.parse(req.responseText)}catch(e){}
+        if(data&&data.connected){
+          if(/(?:^|[?&])cna=apple(?:&|$)/.test(String(window.location.search||''))){
+            window.location.replace('http://captive.apple.com/hotspot-detect.html');
+          }
+          return;
+        }
+        if(attempt<5)setTimeout(function(){handshake(attempt+1)},1200);
+      };
+      req.send(null);
+    }catch(e){}
+  }
+  setTimeout(function(){handshake(0)},0);
+})();
+</script>
+</head>
+<body class="theme-premium-dark">
+<div class="wrap">
+  <div class="card">
+    <!-- Hero Image -->
+    <div class="premium-hero" id="portal-hero">
+      <img id="portal-hero-image" src="/hero.jpg" alt="">
+      <img id="portal-logo" class="portal-logo" src="/logo.png" alt="">
+    </div>
+
+    <!-- Portal Header -->
+    <div class="portal-header">
+      <h1 id="business-name" hidden>TarakiFi</h1>
+      <p id="portal-name" class="portal-subtitle">TarakiFi WiFi</p>
+      <div id="wan-badge" class="wan-badge wan-badge--checking">
+        <span class="wan-dot"></span>
+        <span class="wan-label">Checking...</span>
+      </div>
+    </div>
+
+    <!-- Trial Mode Badge -->
+    <div id="portal-trial-badge" style="display:none;background:#78350f;border:1px solid #d97706;border-radius:8px;padding:8px 14px;margin:0 0 12px;text-align:center;">
+      <span style="color:#fbbf24;font-size:.8rem;font-weight:700;">&#9888;&#65039; TRIAL MODE</span>
+      <span id="portal-trial-countdown" style="display:block;color:#fde68a;font-size:.72rem;font-family:monospace;margin-top:2px;"></span>
+    </div>
+
+    <!-- Status Panel -->
+    <section id="status-panel" class="status-panel disconnected" aria-label="Session status">
+      <span class="status-label">Status</span>
+      <span id="status-value" class="status-value">Disconnected</span>
+      <span id="status-detail" class="status-detail" style="display:none"></span>
+      <span id="validity-notice" class="validity-notice" style="display:none">
+        Expires at: <strong id="validity-time"></strong>
+      </span>
+    </section>
+
+    <!-- Device Info (hidden when portal_hide_device_info is enabled) -->
+    <section id="device-panel" class="device-panel" aria-label="Device info">
+      <div>
+        <span class="device-label">IP</span>
+        <span id="device-ip" class="device-value">detecting...</span>
+      </div>
+      <div>
+        <span class="device-label">MAC</span>
+        <span id="device-mac" class="device-value">detecting...</span>
+      </div>
+    </section>
+
+    <p id="coin-btn-notice" class="action-notice" role="alert" aria-live="assertive" style="display:none"></p>
+
+    <!-- Insert Coin Button (always visible when disconnected) -->
+    <section class="section" aria-label="Insert coin">
+      <button id="open-coin-btn" type="button" class="big-coin-btn">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="12" y="16" text-anchor="middle" font-size="11" font-weight="bold" fill="currentColor">&#8369;</text></svg>
+        <span id="open-coin-label">Insert Coin</span>
+      </button>
+    </section>
+
+    <!-- Connected Actions: Add Time first, then Pause -->
+    <section id="connected-actions" class="section" style="display:none" aria-label="Session actions">
+      <button id="btn-add-time" type="button" class="big-coin-btn"><span id="add-time-label">+ Add Time</span></button>
+      <button id="btn-pause" type="button" class="big-coin-btn secondary-btn" style="margin-top:8px">&#9208; Pause</button>
+    </section>
+
+    <!-- Paused Actions: Add Time first, then Resume -->
+    <section id="paused-actions" class="section" style="display:none" aria-label="Paused actions">
+      <button id="btn-add-time-paused" type="button" class="big-coin-btn"><span id="add-time-paused-label">+ Add Time</span></button>
+      <button id="btn-resume" type="button" class="big-coin-btn secondary-btn" style="margin-top:8px">&#9654; Resume</button>
+    </section>
+
+    <!-- Free Time Button (shown when enabled) -->
+    <section id="free-time-section" class="section" style="display:none" aria-label="Free WiFi">
+      <button id="btn-free-time" type="button" class="big-coin-btn free-btn">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+        Free WiFi
+        <span class="free-time-hint" id="free-time-hint"></span>
+      </button>
+    </section>
+
+    <!-- Voucher Redeem Button -->
+    <section id="voucher-section" class="section" style="display:none" aria-label="Voucher">
+      <button id="btn-voucher" type="button" class="big-coin-btn voucher-btn">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M2 10h20M8 14h4"/></svg>
+        Use Voucher
+      </button>
+    </section>
+
+    <!-- WiFi Rates Button (always at bottom) -->
+    <section class="section premium-rates-section" aria-label="Rates">
+      <button type="button" class="big-coin-btn premium-rates-btn" id="toggle-rates-btn" aria-expanded="false">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9z"/><path d="M5 13l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/><circle cx="12" cy="18" r="2" fill="currentColor"/></svg>
+        WiFi Rates
+      </button>
+      <div id="premium-rates-panel" class="rates" style="display:none">
+        <table id="rates-table">
+          <thead><tr><th>Amount</th><th>Time</th></tr></thead>
+          <tbody id="rates-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p id="operator-footer" class="operator-footer" hidden></p>
+      <p class="powered-by">Powered by <a href="https://pisowifi.taraki.vip" rel="noopener noreferrer">TarakiFi</a></p>
+    </footer>
+  </div>
+</div>
+
+<!-- Coin Insert Modal -->
+<div id="coin-modal" class="modal" aria-hidden="true">
+  <div data-close class="modal-backdrop"></div>
+  <div class="modal-card">
+    <button id="close-coin-btn" type="button" class="modal-close">&times;</button>
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="coin-modal-title" class="modal-title">Insert coin into the vendo</p>
+    <p id="coin-balance-row" class="modal-balance">
+      <span id="balance-min" class="balance" data-min="0">0</span><span class="unit">&nbsp;min</span>
+    </p>
+    <p class="modal-balance-label" id="modal-balance-label"></p>
+    <p id="coin-count-row" class="modal-coin-count"><strong id="coin-amount">&#8369;0</strong> detected &middot; <span id="coin-count">0</span> <span id="coin-count-label">coins inserted</span></p>
+    <p id="coin-countdown-row" class="modal-countdown">
+      Closing in <span id="countdown">60</span>s...
+    </p>
+    <button id="connect-btn" type="button" class="connect-btn">Done</button>
+  </div>
+</div>
+
+<!-- Voucher Modal -->
+<div id="voucher-modal" class="modal" aria-hidden="true">
+  <div data-close class="modal-backdrop"></div>
+  <div class="modal-card">
+    <button id="close-voucher-btn" type="button" class="modal-close">&times;</button>
+    <p class="modal-title">Enter Voucher Code</p>
+    <input type="text" id="voucher-input" class="voucher-input" placeholder="Enter voucher code" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <p id="voucher-error" class="voucher-error" style="display:none"></p>
+    <button id="redeem-btn" type="button" class="connect-btn">Redeem</button>
+  </div>
+</div>
+
+<script src="app.js?v=20260806coinvisibility1"></script>
+</body>
+</html>

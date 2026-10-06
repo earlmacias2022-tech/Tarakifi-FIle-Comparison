@@ -1,0 +1,9 @@
+version=1.2.25
+commit=3c05a8120b03b105af9ab26b3da70b3fb7c24ec2
+openwrt=25.12.5
+target=ath79/generic
+device=comfast_cf-ew71-v2
+profile=cf-ew71-v2
+router_model=COMFAST CF-EW71 v2
+router_slug=comfast-cf-ew71-v2
+pppoe_supported=1

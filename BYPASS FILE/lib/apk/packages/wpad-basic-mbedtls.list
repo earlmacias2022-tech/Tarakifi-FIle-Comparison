@@ -1,0 +1,6 @@
+/lib/apk/packages/wpad-basic-mbedtls.rusers
+/usr/sbin/hostapd
+/usr/sbin/wpa_supplicant
+/usr/sbin/wpad
+/usr/share/hostap/hostapd.uc
+/usr/share/hostap/wpa_supplicant.uc

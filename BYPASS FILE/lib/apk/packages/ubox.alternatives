@@ -1,0 +1,1 @@
+100:/sbin/rmmod:/sbin/kmodloader 100:/sbin/insmod:/sbin/kmodloader 100:/sbin/lsmod:/sbin/kmodloader 100:/sbin/modinfo:/sbin/kmodloader 100:/sbin/modprobe:/sbin/kmodloader

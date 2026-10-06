@@ -1,0 +1,9 @@
+/etc/config/dropbear
+/etc/init.d/dropbear
+/etc/uci-defaults/50-dropbear
+/lib/apk/packages/dropbear.alternatives
+/lib/preinit/99_10_failsafe_dropbear
+/lib/upgrade/keep.d/dropbear
+/usr/bin/dbclient
+/usr/bin/dropbearkey
+/usr/sbin/dropbear

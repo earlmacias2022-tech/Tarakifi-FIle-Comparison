@@ -1,0 +1,307 @@
+#!/bin/sh /etc/rc.common
+START=99
+STOP=10
+USE_PROCD=1
+EXTRA_COMMANDS="recover_firewall"
+EXTRA_HELP="\trecover_firewall\tReload TarakiFi firewall rules and runtime policies"
+
+FLASH_DB="${TARAKIFI_FLASH_DB_PATH:-/etc/tarakifi/sessions.db}"
+FLASH_BACKUP_DB="${TARAKIFI_BACKUP_DB_PATH:-/etc/tarakifi/sessions.db.bak}"
+FLASH_TMP_DB="${TARAKIFI_SNAPSHOT_DB_PATH:-/etc/tarakifi/sessions.db.tmp}"
+BOARD_NAME_FILE="${TARAKIFI_BOARD_NAME_FILE:-/tmp/sysinfo/board_name}"
+PORTAL_ASSETS="${TARAKIFI_PORTAL_ASSETS:-/opt/tarakifi/www/portal}"
+
+is_e314n_board() {
+    [ -r "$BOARD_NAME_FILE" ] || return 1
+    [ "$(cat "$BOARD_NAME_FILE" 2>/dev/null)" = "comfast,cf-e314n-v2" ]
+}
+
+cleanup_stale_media_uploads() {
+    is_e314n_board || return 0
+    local stale_upload
+    [ -d "$PORTAL_ASSETS" ] || return 0
+    for stale_upload in "$PORTAL_ASSETS"/*.upload.tmp; do
+        [ -e "$stale_upload" ] || continue
+        rm -f "$stale_upload" || return 1
+        echo "TarakiFi: Removed stale media upload $(basename "$stale_upload")"
+    done
+}
+
+db_is_valid() {
+    [ -s "$1" ] || return 1
+    TARAKIFI_DB_CHECK="$1" lua -e '
+        local sqlite3 = require("lsqlite3")
+        local db = sqlite3.open(os.getenv("TARAKIFI_DB_CHECK"), sqlite3.OPEN_READONLY)
+        if not db then os.exit(1) end
+        local stmt = db:prepare("PRAGMA quick_check")
+        local ok = stmt and stmt:step() == sqlite3.ROW and stmt:get_value(0) == "ok"
+        if stmt then stmt:finalize() end
+        db:close()
+        os.exit(ok and 0 or 1)
+    ' >/dev/null 2>&1
+}
+
+restore_database() {
+    mkdir -p /tmp/tarakifi /etc/tarakifi
+    rm -f "$FLASH_TMP_DB" "$FLASH_BACKUP_DB.tmp" 2>/dev/null
+    if [ -f /tmp/tarakifi.db ]; then
+        db_is_valid /tmp/tarakifi.db && return 0
+        echo "TarakiFi: Runtime DB invalid; restoring from flash"
+        rm -f /tmp/tarakifi.db
+    fi
+    local source=""
+    if db_is_valid "$FLASH_DB"; then
+        source="$FLASH_DB"
+    elif db_is_valid "$FLASH_BACKUP_DB"; then
+        source="$FLASH_BACKUP_DB"
+        echo "TarakiFi: Primary DB invalid; using last known-good backup"
+    fi
+    if [ -n "$source" ]; then
+        if cp "$source" /tmp/tarakifi.db.restore && mv /tmp/tarakifi.db.restore /tmp/tarakifi.db; then
+            echo "TarakiFi: Restored verified DB from flash"
+            lua -e 'local s=require("lsqlite3");local d=s.open("/tmp/tarakifi.db");d:exec("PRAGMA journal_mode=WAL");d:close()' 2>/dev/null
+            if [ "$source" = "$FLASH_BACKUP_DB" ]; then
+                if cp "$source" "$FLASH_DB.recovered" && mv "$FLASH_DB.recovered" "$FLASH_DB"; then
+                    sync "$FLASH_DB" 2>/dev/null || sync
+                    echo "TarakiFi: Recovered primary DB from old backup"
+                else
+                    rm -f "$FLASH_DB.recovered"
+                    echo "TarakiFi: Failed to recover primary DB from backup"
+                    return 1
+                fi
+            fi
+        else
+            rm -f /tmp/tarakifi.db.restore
+            echo "TarakiFi: Failed to restore DB snapshot"
+            return 1
+        fi
+    else
+        echo "TarakiFi: No valid DB snapshot; initializing a new database"
+    fi
+    rm -f "$FLASH_BACKUP_DB" "$FLASH_BACKUP_DB.tmp" "$FLASH_TMP_DB" 2>/dev/null
+}
+
+initialize_database() {
+    rm -f /tmp/tarakifi.db.schema-ready
+    lua -e '
+        package.path="/opt/tarakifi/lua/?.lua;/opt/tarakifi/lua/lib/?.lua;"..package.path
+        require("lib.db").init()
+    '
+}
+
+remove_legacy_uhttpd_instances() {
+    local changed=0
+    local section home handler
+    for section in portal admin captive; do
+        home=$(uci -q get "uhttpd.$section.home")
+        handler=$(uci -q get "uhttpd.$section.lua_handler")
+        case "$home:$handler" in
+            /opt/tarakifi/*:/opt/tarakifi/*)
+                uci -q delete "uhttpd.$section"
+                changed=1
+                ;;
+        esac
+    done
+    if [ "$changed" -eq 1 ]; then
+        uci commit uhttpd || return 1
+        /etc/init.d/uhttpd stop >/dev/null 2>&1 || true
+        echo "TarakiFi: Removed legacy uhttpd instances"
+    fi
+}
+
+stop_stock_uhttpd() {
+    /etc/init.d/uhttpd stop >/dev/null 2>&1 || true
+}
+
+restore_runtime_policies() {
+    lua -e '
+        package.path="/opt/tarakifi/lua/?.lua;/opt/tarakifi/lua/lib/?.lua;"..package.path
+        local admin=require("lib.admin")
+        local ok,err=admin.apply_runtime_policies()
+        if not ok then io.stderr:write(tostring(err),"\n");os.exit(1) end
+    '
+}
+
+valid_interface_name() {
+    case "$1" in
+        ""|*[!A-Za-z0-9_.:-]*) return 1 ;;
+    esac
+    [ "${#1}" -le 15 ]
+}
+
+valid_interface() {
+    valid_interface_name "$1" || return 1
+    [ -e "${TARAKIFI_NET_CLASS_PATH:-/sys/class/net}/$1" ]
+}
+
+detect_wan_device() {
+    local wan_device
+    wan_device="${TARAKIFI_WAN_DEVICE:-}"
+    if valid_interface_name "$wan_device"; then
+        echo "$wan_device"
+        return 0
+    fi
+
+    wan_device=$(uci -q get network.wan.device 2>/dev/null)
+    # nftables accepts an interface name before netifd creates the link. Using
+    # the validated UCI device keeps the captive firewall fail-closed while
+    # allowing TarakiFi to start with no carrier, lease, route, or internet.
+    if valid_interface_name "$wan_device"; then
+        echo "$wan_device"
+        return 0
+    fi
+
+    wan_device=$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)
+    if valid_interface "$wan_device"; then
+        echo "$wan_device"
+        return 0
+    fi
+
+    return 1
+}
+
+detect_wan_l3_iface() {
+    local wan_iface wan_proto
+    wan_iface="${TARAKIFI_WAN_L3_IFACE:-${TARAKIFI_WAN_IFACE:-}}"
+    if valid_interface_name "$wan_iface"; then
+        echo "$wan_iface"
+        return 0
+    fi
+
+    wan_proto=$(uci -q get network.wan.proto 2>/dev/null)
+    wan_iface=$("${TARAKIFI_UBUS_BIN:-/bin/ubus}" -S \
+        call network.interface.wan status 2>/dev/null | \
+        "${TARAKIFI_JSONFILTER_BIN:-/usr/bin/jsonfilter}" -e '@.l3_device' 2>/dev/null)
+    if [ "$wan_proto" = "pppoe" ]; then
+        case "$wan_iface" in
+            pppoe-*)
+                if valid_interface_name "$wan_iface"; then
+                    echo "$wan_iface"
+                    return 0
+                fi
+                ;;
+        esac
+        echo "pppoe-wan"
+        return 0
+    fi
+    if valid_interface_name "$wan_iface"; then
+        echo "$wan_iface"
+        return 0
+    fi
+
+    detect_wan_device
+}
+
+detect_wan_iface() {
+    detect_wan_l3_iface
+}
+
+recover_firewall() {
+    local wan_device wan_l3_iface
+    mkdir -p /tmp/tarakifi
+    wan_device=$(detect_wan_device) || {
+        echo "TarakiFi: WAN device is not ready" >&2
+        return 1
+    }
+    wan_l3_iface=$(detect_wan_l3_iface) || {
+        echo "TarakiFi: WAN interface is not ready" >&2
+        return 1
+    }
+    echo "TarakiFi: WAN device $wan_device, active interface $wan_l3_iface"
+    sed -e "s/__WAN_DEVICE__/$wan_device/g" \
+        -e "s/__WAN_L3_IFACE__/$wan_l3_iface/g" \
+        /etc/tarakifi.nft > /tmp/tarakifi-active.nft || return 1
+    nft -c -f /tmp/tarakifi-active.nft >/dev/null 2>&1 || return 1
+    nft -f /tmp/tarakifi-active.nft 2>/dev/null || return 1
+    if ! restore_runtime_policies; then
+        echo "TarakiFi: Optional network policies could not be restored; continuing safely"
+    fi
+}
+
+start_service() {
+    echo "TarakiFi: Starting services..."
+    # Set timezone to Philippine Standard Time (UTC+8)
+    echo 'PHT-8' > /etc/TZ
+    # Disable IPv6 on LAN
+    echo 1 > /proc/sys/net/ipv6/conf/br-lan/disable_ipv6 2>/dev/null
+    echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null
+    stop_stock_uhttpd
+    cleanup_stale_media_uploads ||
+        echo "TarakiFi: Could not remove a stale media upload"
+    remove_legacy_uhttpd_instances || return 1
+    restore_database || return 1
+    initialize_database || return 1
+    recover_firewall || return 1
+
+    procd_open_instance portal
+    procd_set_param command /usr/sbin/uhttpd -f \
+        -h /opt/tarakifi/www/portal \
+        -l / -L /opt/tarakifi/lua/handler.lua \
+        -p 0.0.0.0:80 -p 0.0.0.0:8888 \
+        -t 10 -T 30 -n 10 -N 100
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    procd_open_instance admin
+    procd_set_param command /usr/sbin/uhttpd -f \
+        -h /opt/tarakifi/www/admin \
+        -l /api -L /opt/tarakifi/lua/handler.lua \
+        -p 0.0.0.0:8080 \
+        -t 30 -T 30 -n 20 -N 20
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    procd_open_instance captive
+    procd_set_param command /usr/sbin/uhttpd -f \
+        -h /opt/tarakifi/www/portal -r OpenWrt \
+        -l / -L /opt/tarakifi/lua/captive_redirect.lua \
+        -p 0.0.0.0:2080 \
+        -t 5 -T 30 -n 20 -N 20
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    procd_open_instance timer
+    procd_set_param command /usr/bin/lua /opt/tarakifi/lua/lib/timer.lua
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    if lua -e 'require("ubus")' >/dev/null 2>&1; then
+        procd_open_instance roaming
+        procd_set_param command /usr/bin/lua /opt/tarakifi/lua/lib/roaming.lua
+        procd_set_param respawn 3600 5 0
+        procd_set_param watchdog 1 90
+        procd_set_param stdout 1
+        procd_set_param stderr 1
+        procd_close_instance
+    else
+        echo "TarakiFi: Lua ubus module unavailable; roaming worker disabled"
+    fi
+
+    procd_open_instance remote
+    procd_set_param command /usr/bin/lua /opt/tarakifi/lua/lib/remote.lua
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    echo "TarakiFi: All services started."
+}
+stop_service() {
+    echo "TarakiFi: Stopping services..."
+    # Sync DB to flash before stopping
+    lua -e 'package.path="/opt/tarakifi/lua/?.lua;/opt/tarakifi/lua/lib/?.lua;"..package.path; local db=require("lib.db"); db.init(); db.persist("service-stop", true)' 2>/dev/null
+    echo "TarakiFi: Stopped."
+}
