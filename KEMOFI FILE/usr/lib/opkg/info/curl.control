@@ -1,0 +1,15 @@
+Package: curl
+Version: 8.19.0-r2
+Depends: libc, libcurl4
+Source: feeds/packages/net/curl
+SourceName: curl
+License: MIT
+LicenseFiles: COPYING
+Section: net
+SourceDateEpoch: 1788424645
+URL: https://curl.se/
+CPE-ID: cpe:/a:haxx:libcurl
+Maintainer: Aleksey Vasilenko <aleksey.vasilenko@gmail.com>
+Architecture: mips_24kc
+Installed-Size: 204800
+Description:  A client-side URL transfer utility

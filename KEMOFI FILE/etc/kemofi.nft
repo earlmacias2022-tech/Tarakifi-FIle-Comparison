@@ -1,0 +1,32 @@
+flush ruleset
+table inet kemofi {
+    set allowed_macs {
+        type ether_addr
+        flags dynamic
+    }
+    chain input {
+        type filter hook input priority filter; policy drop;
+        iifname "lo" accept
+        ct state established,related accept
+        iifname "br-lan" accept
+        iifname "__WAN_IFACE__" udp sport 67 udp dport 68 accept
+    }
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        iifname "br-lan" oifname "__WAN_IFACE__" ether saddr @allowed_macs accept
+        iifname "__WAN_IFACE__" oifname "br-lan" ct state established,related accept
+    }
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+        iifname "br-lan" ether saddr @allowed_macs return
+        iifname "br-lan" udp dport 53 redirect to :53
+        iifname "br-lan" tcp dport 53 redirect to :53
+        iifname "br-lan" ip daddr 10.0.0.1 tcp dport 80 redirect to :8888
+        iifname "br-lan" ip daddr 10.0.0.1 tcp dport 8080 accept
+        iifname "br-lan" tcp dport 80 redirect to :2080
+    }
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        oifname "__WAN_IFACE__" masquerade
+    }
+}

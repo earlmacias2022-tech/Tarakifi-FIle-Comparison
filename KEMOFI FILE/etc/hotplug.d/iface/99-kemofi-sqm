@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Reapply WAN-dependent policies when the logical WAN comes back.
+[ "${INTERFACE:-}" = "wan" ] || exit 0
+
+reapply_bandwidth() {
+    [ -x /usr/bin/lua ] || return 0
+    /usr/bin/lua -e '
+        package.path="/opt/kemofi/lua/?.lua;/opt/kemofi/lua/lib/?.lua;"..package.path
+        local admin=require("lib.admin")
+        local ok,err=admin.apply_bandwidth()
+        if not ok then io.stderr:write(tostring(err),"\n"); os.exit(1) end
+    ' >/dev/null 2>&1 || true
+}
+
+case "${ACTION:-}" in
+    ifup)
+        reapply_bandwidth
+        /etc/init.d/sqm restart >/dev/null 2>&1 || true
+        ;;
+    ifdown|ifupdate) /etc/init.d/sqm restart >/dev/null 2>&1 || true ;;
+esac

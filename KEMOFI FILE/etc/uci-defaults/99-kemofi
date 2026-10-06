@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+
+# ImageBuilder installs the service files but does not guarantee that the
+# application service is enabled on the first boot. Enable KemoFi only after
+# the base network and UCI configuration are present.
+/etc/init.d/kemofi enable
+
+# Full images use the OpenWrt SQM package. Lite images normally use the
+# compact KemoFi SQM backend. Only the CF-E355AC V2 Lite image carries this
+# marker, so remove files that may have survived a preserve-settings upgrade
+# from an SQM-capable image on that profile.
+if [ -f /etc/kemofi/sqm-disabled ]; then
+    rm -f /etc/init.d/sqm \
+        /etc/hotplug.d/iface/99-kemofi-sqm \
+        /etc/config/sqm \
+        /etc/rc.d/*sqm
+elif [ -x /etc/init.d/sqm ]; then
+    /etc/init.d/sqm enable >/dev/null 2>&1 || true
+fi
+
+# Avoid a stock uhttpd instance competing with KemoFi's portal/admin/captive
+# listeners. The KemoFi init script owns those listeners.
+if [ -x /etc/init.d/uhttpd ]; then
+    /etc/init.d/uhttpd disable >/dev/null 2>&1 || true
+    /etc/init.d/uhttpd stop >/dev/null 2>&1 || true
+fi
+
+exit 0

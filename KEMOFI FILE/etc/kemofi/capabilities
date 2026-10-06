@@ -1,0 +1,11 @@
+profile=comfast_cf-ew71-v2
+flavor=lite8m
+resource_tier=comfast-lite16m
+radio_bands=2.4ghz+5ghz
+sqm_available=1
+roaming_available=1
+remote_available=1
+captive_portal_available=1
+admin_available=1
+coin_poll_ms=250
+status_poll_ms=5000

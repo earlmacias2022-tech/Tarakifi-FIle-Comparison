@@ -1,0 +1,15 @@
+Package: libxtables12
+Version: 1.8.10-r1
+Depends: libc
+Provides: libxtables
+Source: feeds/base/network/utils/iptables
+SourceName: iptables
+License: GPL-2.0
+Section: libs
+SourceDateEpoch: 1729551123
+URL: https://netfilter.org/
+ABIVersion: 12
+CPE-ID: cpe:/a:netfilter:iptables
+Architecture: mips_24kc
+Installed-Size: 71680
+Description:  IPv4/IPv6 firewall - shared xtables library

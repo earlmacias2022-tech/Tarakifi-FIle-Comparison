@@ -1,0 +1,168 @@
+#!/bin/sh /etc/rc.common
+
+# Minimal CAKE/IFB backend for Lite; it uses the full image's /etc/config/sqm
+# contract without pulling sqm-scripts and its legacy iptables dependencies.
+
+START=99
+STOP=10
+
+SQM_CONFIG="/etc/config/sqm"
+IFB_DEVICE="ifb-kemofi"
+
+valid_rate() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -gt 0 ] 2>/dev/null
+}
+
+valid_overhead() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -le 256 ] 2>/dev/null
+}
+
+valid_iface() {
+    case "$1" in
+        ''|*[!A-Za-z0-9_.:-]*) return 1 ;;
+    esac
+    [ "${#1}" -le 15 ] && ip link show dev "$1" >/dev/null 2>&1
+}
+
+wan_device() {
+    local device
+    device=$(uci -q get network.wan.device 2>/dev/null || true)
+    if valid_iface "$device"; then
+        printf '%s\n' "$device"
+        return 0
+    fi
+
+    device=$(uci -q get network.wan.ifname 2>/dev/null || true)
+    if valid_iface "$device"; then
+        printf '%s\n' "$device"
+        return 0
+    fi
+
+    device=$(ip route show default 2>/dev/null | awk 'NR == 1 {print $5}')
+    if valid_iface "$device"; then
+        printf '%s\n' "$device"
+        return 0
+    fi
+    return 1
+}
+
+cake_qdisc() {
+    local device="$1"
+    local rate="$2"
+    local direction="$3"
+    local linklayer overhead fairness
+    local args
+
+    linklayer=$(uci -q get sqm.wan.linklayer 2>/dev/null || printf 'ethernet')
+    overhead=$(uci -q get sqm.wan.overhead 2>/dev/null || printf '0')
+    fairness=$(uci -q get sqm.wan.eqdisc_opts 2>/dev/null || true)
+    [ "$direction" = "ingress" ] && fairness=$(uci -q get sqm.wan.iqdisc_opts 2>/dev/null || true)
+
+    case "$linklayer" in
+        none) args="cake bandwidth ${rate}kbit" ;;
+        ethernet) args="cake bandwidth ${rate}kbit ethernet" ;;
+        atm) args="cake bandwidth ${rate}kbit atm" ;;
+        *) return 1 ;;
+    esac
+
+    valid_overhead "$overhead" || overhead=0
+    [ "$overhead" -gt 0 ] && args="$args overhead $overhead"
+
+    case "$fairness" in
+        *dual-srchost*) args="$args nat dual-srchost" ;;
+        *dual-dsthost*) args="$args nat dual-dsthost" ;;
+        *) args="$args besteffort" ;;
+    esac
+
+    set -- $args
+    tc qdisc replace dev "$device" root "$@"
+}
+
+remove_qdiscs() {
+    local device="$1"
+    [ -n "$device" ] || return 0
+    tc qdisc del dev "$device" root 2>/dev/null || true
+    tc qdisc del dev "$device" ingress 2>/dev/null || true
+}
+
+stop_service() {
+    local device
+    device=$(wan_device 2>/dev/null || true)
+    remove_qdiscs "$device"
+    if ip link show dev "$IFB_DEVICE" >/dev/null 2>&1; then
+        tc qdisc del dev "$IFB_DEVICE" root 2>/dev/null || true
+        ip link del "$IFB_DEVICE" 2>/dev/null || true
+    fi
+}
+
+start_service() {
+    local enabled down up device
+    enabled=$(uci -q get sqm.wan.enabled 2>/dev/null || printf '0')
+    [ "$enabled" = "1" ] || return 0
+
+    down=$(uci -q get sqm.wan.download 2>/dev/null || true)
+    up=$(uci -q get sqm.wan.upload 2>/dev/null || true)
+    if ! valid_rate "$down" || ! valid_rate "$up"; then
+        logger -t kemofi-sqm 'SQM enabled but download/upload rates are invalid'
+        return 1
+    fi
+
+    device=$(wan_device 2>/dev/null || true)
+    if [ -z "$device" ]; then
+        logger -t kemofi-sqm 'WAN device is not ready; SQM will retry on ifup'
+        return 0
+    fi
+
+    stop_service
+    modprobe ifb numifbs=1 2>/dev/null || true
+    ip link add "$IFB_DEVICE" type ifb 2>/dev/null || true
+    ip link set dev "$IFB_DEVICE" up
+
+    if ! cake_qdisc "$device" "$up" egress; then
+        logger -t kemofi-sqm 'failed to install upload CAKE qdisc'
+        stop_service
+        return 1
+    fi
+    if ! cake_qdisc "$IFB_DEVICE" "$down" ingress; then
+        logger -t kemofi-sqm 'failed to install download CAKE qdisc'
+        stop_service
+        return 1
+    fi
+
+    tc qdisc replace dev "$device" handle ffff: ingress
+    tc filter replace dev "$device" parent ffff: protocol all u32 match u32 0 0 \
+        action mirred egress redirect dev "$IFB_DEVICE"
+}
+
+start() {
+    start_service
+}
+
+stop() {
+    stop_service
+}
+
+restart() {
+    stop_service
+    start_service
+}
+
+reload() {
+    restart
+}
+
+status() {
+    local device
+    device=$(wan_device 2>/dev/null || true)
+    [ -n "$device" ] || return 0
+    tc qdisc show dev "$device"
+    if ip link show dev "$IFB_DEVICE" >/dev/null 2>&1; then
+        tc qdisc show dev "$IFB_DEVICE"
+    fi
+}

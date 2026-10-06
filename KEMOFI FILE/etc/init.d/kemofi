@@ -1,0 +1,228 @@
+#!/bin/sh /etc/rc.common
+START=99
+STOP=10
+USE_PROCD=1
+EXTRA_COMMANDS="recover_firewall"
+EXTRA_HELP="\trecover_firewall\tReload KemoFi firewall rules and runtime policies"
+
+db_is_valid() {
+    [ -s "$1" ] || return 1
+    KEMOFI_DB_CHECK="$1" lua -e '
+        local sqlite3 = require("lsqlite3")
+        local db = sqlite3.open(os.getenv("KEMOFI_DB_CHECK"), sqlite3.OPEN_READONLY)
+        if not db then os.exit(1) end
+        local stmt = db:prepare("PRAGMA quick_check")
+        local ok = stmt and stmt:step() == sqlite3.ROW and stmt:get_value(0) == "ok"
+        if stmt then stmt:finalize() end
+        db:close()
+        os.exit(ok and 0 or 1)
+    ' >/dev/null 2>&1
+}
+
+restore_database() {
+    mkdir -p /tmp/kemofi /etc/kemofi /etc/pisowifi
+    if [ -f /tmp/kemofi.db ]; then
+        db_is_valid /tmp/kemofi.db && return 0
+        echo "KemoFi: Runtime DB invalid; restoring from flash"
+        rm -f /tmp/kemofi.db
+    fi
+    local source=""
+    if db_is_valid /etc/kemofi/sessions.db; then
+        source=/etc/kemofi/sessions.db
+    elif db_is_valid /etc/kemofi/sessions.db.bak; then
+        source=/etc/kemofi/sessions.db.bak
+        echo "KemoFi: Primary DB invalid; using last known-good backup"
+    fi
+    if [ -n "$source" ]; then
+        if cp "$source" /tmp/kemofi.db.restore && mv /tmp/kemofi.db.restore /tmp/kemofi.db; then
+            echo "KemoFi: Restored verified DB from flash"
+            lua -e 'local s=require("lsqlite3");local d=s.open("/tmp/kemofi.db");d:exec("PRAGMA journal_mode=WAL");d:close()' 2>/dev/null
+        else
+            rm -f /tmp/kemofi.db.restore
+            echo "KemoFi: Failed to restore DB snapshot"
+            return 1
+        fi
+    else
+        echo "KemoFi: No valid DB snapshot; initializing a new database"
+    fi
+}
+
+initialize_database() {
+    rm -f /tmp/kemofi.db.schema-ready
+    lua -e '
+        package.path="/opt/kemofi/lua/?.lua;/opt/kemofi/lua/lib/?.lua;"..package.path
+        require("lib.db").init()
+    '
+}
+
+remove_legacy_uhttpd_instances() {
+    local changed=0
+    local section home handler
+    for section in portal admin captive; do
+        home=$(uci -q get "uhttpd.$section.home")
+        handler=$(uci -q get "uhttpd.$section.lua_handler")
+        case "$home:$handler" in
+            /opt/kemofi/*:/opt/kemofi/*)
+                uci -q delete "uhttpd.$section"
+                changed=1
+                ;;
+        esac
+    done
+    if [ "$changed" -eq 1 ]; then
+        uci commit uhttpd || return 1
+        /etc/init.d/uhttpd stop >/dev/null 2>&1 || true
+        /etc/init.d/uhttpd start >/dev/null 2>&1 || true
+        echo "KemoFi: Removed legacy uhttpd instances"
+    fi
+}
+
+restore_runtime_policies() {
+    lua -e '
+        package.path="/opt/kemofi/lua/?.lua;/opt/kemofi/lua/lib/?.lua;"..package.path
+        local admin=require("lib.admin")
+        local ok,err=admin.apply_runtime_policies()
+        if not ok then io.stderr:write(tostring(err),"\n");os.exit(1) end
+    '
+}
+
+valid_interface_name() {
+    case "$1" in
+        ""|*[!A-Za-z0-9_.:-]*) return 1 ;;
+    esac
+    [ "${#1}" -le 15 ]
+}
+
+valid_interface() {
+    valid_interface_name "$1" || return 1
+    [ -e "${KEMOFI_NET_CLASS_PATH:-/sys/class/net}/$1" ]
+}
+
+detect_wan_iface() {
+    local wan_iface
+    wan_iface=$(uci -q get network.wan.device 2>/dev/null)
+    # nftables accepts an interface name before netifd creates the link. Using
+    # the validated UCI device keeps the captive firewall fail-closed while
+    # allowing KemoFi to start with no carrier, lease, route, or internet.
+    if valid_interface_name "$wan_iface"; then
+        echo "$wan_iface"
+        return 0
+    fi
+
+    wan_iface=$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)
+    if valid_interface "$wan_iface"; then
+        echo "$wan_iface"
+        return 0
+    fi
+
+    return 1
+}
+
+recover_firewall() {
+    local wan_iface
+    mkdir -p /tmp/kemofi
+    wan_iface=$(detect_wan_iface) || {
+        echo "KemoFi: WAN interface is not ready" >&2
+        return 1
+    }
+    echo "KemoFi: WAN interface detected as $wan_iface"
+    sed "s/__WAN_IFACE__/$wan_iface/g" /etc/kemofi.nft > /tmp/kemofi-active.nft || return 1
+    nft -c -f /tmp/kemofi-active.nft >/dev/null 2>&1 || return 1
+    nft -f /tmp/kemofi-active.nft 2>/dev/null || return 1
+    if ! restore_runtime_policies; then
+        echo "KemoFi: Optional network policies could not be restored; continuing safely"
+    fi
+}
+
+start_service() {
+    echo "KemoFi: Starting services..."
+    # Set timezone to Philippine Standard Time (UTC+8)
+    echo 'PHT-8' > /etc/TZ
+    # Disable IPv6 on LAN
+    echo 1 > /proc/sys/net/ipv6/conf/br-lan/disable_ipv6 2>/dev/null
+    echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null
+    remove_legacy_uhttpd_instances || return 1
+    restore_database || return 1
+    initialize_database || return 1
+    recover_firewall || return 1
+
+    procd_open_instance portal
+    procd_set_param command /usr/sbin/uhttpd -f \
+        -h /opt/kemofi/www/portal \
+        -l / -L /opt/kemofi/lua/handler.lua \
+        -p 0.0.0.0:80 -p 0.0.0.0:8888 \
+        -t 10 -T 30 -n 10 -N 100
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    procd_open_instance admin
+    procd_set_param command /usr/sbin/uhttpd -f \
+        -h /opt/kemofi/www/admin \
+        -l /api -L /opt/kemofi/lua/handler.lua \
+        -p 0.0.0.0:8080 \
+        -t 180 -T 180 -n 20 -N 20
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    procd_open_instance captive
+    procd_set_param command /usr/sbin/uhttpd -f \
+        -h /opt/kemofi/www/portal -r OpenWrt \
+        -l / -L /opt/kemofi/lua/captive_redirect.lua \
+        -p 0.0.0.0:2080 \
+        -t 5 -T 30 -n 20 -N 20
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    procd_open_instance timer
+    procd_set_param command /usr/bin/lua /opt/kemofi/lua/lib/timer.lua
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    procd_open_instance roaming
+    procd_set_param command /usr/bin/lua /opt/kemofi/lua/lib/roaming.lua
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    procd_open_instance remote
+    procd_set_param command /usr/bin/lua /opt/kemofi/lua/lib/remote.lua
+    procd_set_param respawn 3600 5 0
+    procd_set_param watchdog 1 90
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    # Lightweight remote administration uses an outbound reverse-SSH relay
+    # assigned by the HTTPS agent. It does not open an inbound SSH listener or
+    # alter the customer/WAN forwarding path.
+    if [ -x /usr/lib/kemofi/reverse-ssh.sh ]; then
+        procd_open_instance remote_ssh
+        procd_set_param command /usr/lib/kemofi/reverse-ssh.sh
+        procd_set_param respawn 3600 10 0
+        procd_set_param watchdog 1 120
+        procd_set_param stdout 1
+        procd_set_param stderr 1
+        procd_close_instance
+    fi
+
+    echo "KemoFi: All services started."
+}
+stop_service() {
+    echo "KemoFi: Stopping services..."
+    # Sync DB to flash before stopping
+    lua -e 'package.path="/opt/kemofi/lua/?.lua;/opt/kemofi/lua/lib/?.lua;"..package.path; local db=require("lib.db"); db.init(); db.persist("service-stop", true)' 2>/dev/null
+    echo "KemoFi: Stopped."
+}

@@ -1,0 +1,12 @@
+Package: uhttpd-mod-lua
+Version: 2025.07.06~7e64e8ba-r5
+Depends: libc, uhttpd, liblua5.1.5
+Source: feeds/base/package/network/services/uhttpd
+SourceName: uhttpd
+License: ISC
+Section: net
+SourceDateEpoch: 1784592776
+Maintainer: Felix Fietkau <nbd@nbd.name>
+Architecture: mips_24kc
+Installed-Size: 71680
+Description:  The Lua plugin adds a CGI-like Lua runtime interface to uHTTPd.

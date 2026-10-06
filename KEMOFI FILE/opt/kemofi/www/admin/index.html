@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>KemoFi LiteV2 Admin</title>
+<link id="admin-favicon" rel="icon" href="/kemofi-logo.webp" type="image/webp">
+<link id="admin-apple-touch-icon" rel="apple-touch-icon" href="/kemofi-logo.webp">
+<script>
+(function () {
+  var path = window.location.pathname;
+  var match = path.match(/^\/api\/remote\/([^/]+)(\/admin)?\/?$/);
+  if (!match) return;
+  document.documentElement.className += ' remote-access';
+  // Use one canonical URL so relative admin assets never escape the vendor
+  // tunnel through an /admin/ redirect.
+  var canonical = '/api/remote/' + match[1] + '/admin/';
+  if (path !== canonical) {
+    window.history.replaceState(null, '', canonical + window.location.search + window.location.hash);
+  }
+})();
+</script>
+<style>
+html.remote-access .login-screen { display: none; }
+html.remote-access #app { display: block !important; }
+
+/* ── Reset & Base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; transition: background .2s, color .2s; }
+button, input, select, textarea { font: inherit; }
+
+/* ── Dark Theme (default) ─────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #f5f8fc;
+  --bg2: #ffffff;
+  --bg3: #eef4fb;
+  --border: #dbe5f1;
+  --text: #132238;
+  --text2: #667892;
+  --accent: #2563eb;
+  --accent-bg: rgba(37,99,235,.10);
+  --green: #087f5b;
+  --red: #c0394b;
+  --amber: #9a6700;
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #dbe5f1;
+  --nav-hover: #f3f7fd;
+  --nav-active-bg: #eff6ff;
+  --nav-active-color: #1d4ed8;
+  --danger-color: #c0394b;
+  --danger-bg: #fff1f2;
+  --input-bg: #ffffff;
+  --card-bg: #ffffff;
+  --shadow: 0 10px 28px rgba(30,64,110,.08);
+}
+
+body { background: var(--bg); color: var(--text); }
+
+/* ── Login Screen ─────────────────────────────────────────────────────────── */
+.login-screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); z-index: 9999; padding: 20px; }
+.login-card { width: 100%; max-width: 360px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 32px 28px; box-shadow: var(--shadow); text-align: center; }
+.login-logo { width: 56px; height: 56px; object-fit: contain; border-radius: 10px; margin-bottom: 12px; }
+.login-card h1 { font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.login-subtitle { font-size: .82rem; color: var(--text2); margin-bottom: 20px; }
+.login-card form { display: flex; flex-direction: column; gap: 10px; }
+.pw-wrap { position: relative; }
+.pw-wrap .input { padding-right: 40px; }
+.pw-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text2); padding: 4px; display: flex; align-items: center; }
+.pw-toggle:hover { color: var(--accent); }
+.login-card .btn-primary { margin-top: 4px; }
+.login-footer { margin-top: 16px; }
+.link-btn { background: none; border: none; color: var(--accent); font-size: .82rem; cursor: pointer; padding: 0; }
+.link-btn:hover { text-decoration: underline; }
+.error-text { color: var(--red); font-size: .82rem; margin-top: 4px; }
+
+/* ── App Shell ────────────────────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.admin-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 200;
+  transition: width .2s cubic-bezier(.23,1,.32,1), transform .2s cubic-bezier(.23,1,.32,1);
+  overflow: hidden;
+}
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px 14px;
+  border-bottom: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
+}
+.brand-logo { width: 32px; height: 32px; object-fit: contain; border-radius: 8px; flex-shrink: 0; }
+.brand-copy { overflow: hidden; }
+.brand-name { display: block; max-width: 138px; overflow: hidden; text-overflow: ellipsis; font-size: .9rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.brand-hint { display: block; font-size: .7rem; color: var(--text2); white-space: nowrap; }
+.sidebar-collapse {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.sidebar-collapse:hover { background: var(--accent-bg); color: var(--accent); }
+.sidebar-collapse svg { width: 12px; height: 12px; transition: transform .2s; }
+
+.admin-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-nav::-webkit-scrollbar { width: 4px; }
+.admin-nav::-webkit-scrollbar-track { background: transparent; }
+.admin-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.nav-section-label {
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text2);
+  padding: 10px 10px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text2);
+  font-size: .82rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  text-align: left;
+  width: 100%;
+  transition: background .14s, color .14s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.nav-item:hover { background: var(--nav-hover); color: var(--text); }
+.nav-item.active { background: var(--nav-active-bg); color: var(--nav-active-color); }
+.nav-item.active .nav-icon { color: var(--nav-active-color); }
+.nav-icon {
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--text2);
+  transition: background .14s, color .14s;
+}
+.nav-icon svg { width: 16px; height: 16px; stroke-linecap: round; stroke-linejoin: round; }
+.nav-item:hover .nav-icon { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+.nav-item.active .nav-icon { background: var(--accent-bg); }
+.nav-copy { overflow: hidden; }
+.nav-label { display: block; font-size: .82rem; font-weight: 600; white-space: nowrap; }
+.nav-hint { display: none; }
+
+.nav-danger { color: var(--danger-color) !important; }
+.nav-danger .nav-icon { background: var(--danger-bg) !important; color: var(--danger-color) !important; }
+.nav-danger:hover { background: var(--danger-bg) !important; }
+
+.sidebar-footer {
+  padding: 10px;
+  border-top: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* ── Collapsed Sidebar ────────────────────────────────────────────────────── */
+.admin-sidebar.collapsed { width: 60px; }
+.admin-sidebar.collapsed .brand-copy,
+.admin-sidebar.collapsed .nav-label,
+.admin-sidebar.collapsed .nav-section-label { display: none; }
+.admin-sidebar.collapsed .sidebar-head { justify-content: center; padding: 16px 0 14px; }
+.admin-sidebar.collapsed .sidebar-collapse { margin-left: 0; }
+.admin-sidebar.collapsed .nav-item { justify-content: center; padding: 8px 0; }
+.admin-sidebar.collapsed .admin-nav { padding: 10px 6px; }
+.admin-sidebar.collapsed .sidebar-footer { padding: 10px 6px; }
+.admin-sidebar.collapsed .sidebar-collapse svg { transform: rotate(180deg); }
+
+/* ── Mobile Sidebar ───────────────────────────────────────────────────────── */
+.sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 199; }
+.mobile-header { display: none; align-items: center; gap: 10px; padding: 12px 16px; background: var(--card-bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+.mobile-menu-btn { background: none; border: none; cursor: pointer; color: var(--text); padding: 4px; display: flex; align-items: center; }
+.mobile-header-logo { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; }
+.mobile-header-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .95rem; font-weight: 700; color: var(--accent); flex: 1; }
+
+@media (max-width: 768px) {
+  .admin-sidebar { transform: translateX(-100%); width: 240px !important; }
+  .admin-sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-backdrop.visible { display: block; }
+  .mobile-header { display: flex; }
+  .main-content { margin-left: 0 !important; }
+  .admin-sidebar.collapsed { transform: translateX(-100%); }
+}
+
+/* ── Main Content ─────────────────────────────────────────────────────────── */
+.main-content {
+  flex: 1;
+  margin-left: 240px;
+  min-width: 0;
+  transition: margin-left .2s cubic-bezier(.23,1,.32,1);
+  display: flex;
+  flex-direction: column;
+}
+.main-content.sidebar-collapsed { margin-left: 60px; }
+
+/* ── Page Header ──────────────────────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.page-header-left { display: flex; flex-direction: column; }
+.page-kicker { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); }
+.page-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.page-header-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ── Content Area ─────────────────────────────────────────────────────────── */
+.content-area { padding: 20px; max-width: 900px; }
+@media (max-width: 600px) { .content-area { padding: 12px; } }
+
+/* ── Tabs (hidden, used for section switching) ────────────────────────────── */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Stats Grid ───────────────────────────────────────────────────────────── */
+.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (min-width: 600px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+.stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; box-shadow: var(--shadow); }
+.stat-label { display: block; font-size: .7rem; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.stat-value { display: block; font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+
+/* ── Widget ───────────────────────────────────────────────────────────────── */
+.widget { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.widget-title { font-size: .9rem; font-weight: 600; color: var(--text); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.widget-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+/* ── Health Grid ──────────────────────────────────────────────────────────── */
+.health-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 480px) { .health-grid { grid-template-columns: repeat(2, 1fr); } }
+.health-item { text-align: center; padding: 10px 6px; background: var(--bg3); border-radius: 8px; }
+.health-label { display: block; font-size: .65rem; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; }
+.health-value { display: block; font-size: .95rem; font-weight: 700; color: var(--green); margin-top: 4px; }
+.health-detail { display: block; min-height: 1em; font-size: .65rem; color: var(--text2); margin-top: 2px; }
+.health-value.is-warning { color: var(--red); }
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--border); }
+.table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.table th { text-align: left; padding: 10px 12px; color: var(--text2); background: var(--bg3); border-bottom: 1px solid var(--border); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+.table tr:last-child td { border-bottom: none; }
+.table tr:hover td { background: var(--nav-hover); }
+
+/* ── Form Cards ───────────────────────────────────────────────────────────── */
+.form-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.form-title { font-size: .9rem; font-weight: 600; color: var(--text); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.form-row { margin-bottom: 12px; }
+.form-row label { display: block; font-size: .78rem; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+.form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.wan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.wan-grid .form-row { min-width: 0; }
+.wan-status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.wan-status-item { min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg3); }
+.wan-status-label { display: block; color: var(--text2); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.wan-status-value { display: block; margin-top: 3px; color: var(--text); font-size: .8rem; font-weight: 600; overflow-wrap: anywhere; }
+.wan-pending { margin-top: 12px; padding: 12px; border: 1px solid rgba(234,179,8,.45); border-radius: 8px; background: rgba(234,179,8,.1); color: var(--text); font-size: .76rem; line-height: 1.45; }
+@media (max-width: 700px) { .wan-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .wan-grid, .wan-status-grid { grid-template-columns: 1fr; } .wan-card .form-actions .btn { width: 100%; } }
+.firmware-update-card .form-title { display: flex; align-items: center; gap: 8px; }
+.firmware-update-badge { display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 999px; background: rgba(59,130,246,.12); color: var(--accent); font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.firmware-update-copy { margin: -4px 0 14px; color: var(--text2); font-size: .78rem; line-height: 1.5; }
+.firmware-update-copy strong { color: var(--text); }
+.firmware-update-warning { margin: 10px 0 14px; padding: 10px 12px; border: 1px solid rgba(234,179,8,.35); border-radius: 7px; background: rgba(234,179,8,.1); color: var(--text); font-size: .76rem; line-height: 1.45; }
+.firmware-update-progress { display: none; margin-top: 12px; }
+.firmware-update-progress-track { height: 8px; overflow: hidden; border-radius: 999px; background: var(--bg3); border: 1px solid var(--border); }
+.firmware-update-progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--accent); transition: width .2s ease; }
+.firmware-update-progress.is-active .firmware-update-progress-bar { width: 35%; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: firmware-progress-indeterminate 1.25s ease-in-out infinite; }
+.firmware-update-progress-text { margin-top: 7px; color: var(--text2); font-size: .74rem; line-height: 1.4; }
+@keyframes firmware-spin { to { transform: rotate(360deg); } }
+@keyframes firmware-progress-indeterminate { 0% { transform: translateX(-180%); } 100% { transform: translateX(340%); } }
+.firmware-update-message { min-height: 1.25em; margin-top: 8px; color: var(--text2); font-size: .76rem; line-height: 1.4; }
+@media (max-width: 480px) { .firmware-update-card .form-actions .btn { width: 100%; } }
+
+/* ── Inputs ───────────────────────────────────────────────────────────────── */
+.input { display: block; width: 100%; padding: 8px 12px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: .88rem; transition: border-color .15s; }
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.textarea { resize: vertical; font-family: monospace; min-height: 80px; }
+select.input { cursor: pointer; }
+
+/* ── Password wrapper ─────────────────────────────────────────────────────── */
+.pw-field-wrap { position: relative; }
+.pw-field-wrap .input { padding-right: 40px; }
+.pw-eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text2); padding: 4px; display: flex; align-items: center; }
+.pw-eye:hover { color: var(--accent); }
+.pw-eye svg { width: 16px; height: 16px; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: 7px; font-size: .85rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: background .15s, border-color .15s, transform .1s; white-space: nowrap; }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { opacity: .9; }
+.btn-outline { background: transparent; color: var(--text); border-color: var(--border); }
+.btn-outline:hover { background: var(--nav-hover); border-color: var(--text2); }
+.btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+.btn-danger:hover { opacity: .9; }
+.btn-danger-outline { background: transparent; color: var(--red); border-color: var(--red); }
+.btn-danger-outline:hover { background: var(--danger-bg); }
+.btn-sm { padding: 5px 12px; font-size: .78rem; }
+.btn-block { width: 100%; }
+.btn-success { background: #1a7f37; color: #fff; border-color: #1a7f37; }
+[data-theme="dark"] .btn-success { background: #238636; border-color: #238636; }
+.btn-success:hover { opacity: .9; }
+.file-label { cursor: pointer; }
+
+/* ── Per-device bandwidth options ───────────────────────────────────────── */
+.bw-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .bw-grid-2 { grid-template-columns: 1fr; } }
+.segmented-option { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg2); transition: border-color .15s, background .15s; }
+.segmented-option input[type=radio] { display: none; }
+.segmented-option strong { font-size: .85rem; color: var(--text); }
+.segmented-option small { font-size: .72rem; color: var(--text2); line-height: 1.4; }
+.segmented-option.selected, .segmented-option:has(input:checked) { border-color: var(--accent); background: var(--accent-bg, rgba(59,130,246,.08)); }
+.segmented-option.selected strong, .segmented-option:has(input:checked) strong { color: var(--accent); }
+.portal-toggle-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 4px 0 12px; }
+.portal-toggle-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
+.portal-toggle-card:hover { border-color: var(--accent); }
+.portal-toggle-card:has(input:checked) { border-color: var(--accent); background: var(--accent-bg, rgba(59,130,246,.08)); box-shadow: 0 0 0 1px var(--accent-bg, rgba(59,130,246,.08)); }
+.portal-toggle-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.portal-toggle-copy strong { color: var(--text); font-size: .82rem; line-height: 1.25; }
+.portal-toggle-copy small { color: var(--text2); font-size: .7rem; line-height: 1.35; }
+.toggle-switch { position: relative; display: inline-flex; flex: 0 0 auto; width: 40px; height: 22px; }
+.toggle-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.toggle-slider { position: absolute; inset: 0; border-radius: 999px; background: var(--border); transition: background .15s; }
+.toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s; }
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+.toggle-switch input:focus-visible + .toggle-slider { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 720px) { .portal-toggle-grid { grid-template-columns: 1fr; } }
+.notice-amber { font-size: .78rem; padding: 8px 12px; border-radius: 6px; background: rgba(234,179,8,.12); border: 1px solid rgba(234,179,8,.3); color: var(--text); }
+
+/* ── Voucher select checkbox ─────────────────────────────────────────────── */
+.voucher-card.selected { outline: 2px solid var(--accent); }
+
+/* ── Info Grid ────────────────────────────────────────────────────────────── */
+.info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
+.info-item { padding: 8px 10px; background: var(--bg3); border-radius: 7px; }
+.info-label { display: block; font-size: .7rem; color: var(--text2); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+.info-value { display: block; font-size: .88rem; color: var(--text); font-weight: 500; word-break: break-all; }
+
+/* ── Badge ────────────────────────────────────────────────────────────────── */
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: .72rem; font-weight: 600; }
+.badge-blue { background: var(--accent-bg); color: var(--accent); }
+.badge-green { background: rgba(46,160,67,.15); color: var(--green); }
+.badge-red { background: rgba(248,81,73,.15); color: var(--red); }
+.badge-gray { background: var(--bg3); color: var(--text2); }
+
+/* ── Action Buttons in Tables ─────────────────────────────────────────────── */
+.action-btn { padding: 3px 8px; font-size: .72rem; border-radius: 5px; cursor: pointer; border: 1px solid var(--border); background: var(--bg3); color: var(--text); margin-right: 3px; margin-bottom: 2px; display: inline-block; transition: border-color .12s, color .12s; }
+.action-btn:hover { border-color: var(--accent); color: var(--accent); }
+.action-btn.danger { border-color: var(--red); color: var(--red); }
+.action-btn.danger:hover { background: var(--danger-bg); }
+
+/* ── Danger Zone ──────────────────────────────────────────────────────────── */
+.danger-zone { border-color: var(--red) !important; }
+.danger-zone .form-title { color: var(--red); }
+
+/* ── Modal ────────────────────────────────────────────────────────────────── */
+.modal { display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+.modal.open { display: flex; }
+.modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+.modal-card { position: relative; width: 100%; max-width: 400px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; z-index: 1; box-shadow: 0 8px 32px rgba(0,0,0,.3); }
+.modal-close { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--text2); font-size: 1.4rem; cursor: pointer; }
+.modal-card h3 { margin-bottom: 8px; color: var(--text); font-size: 1rem; }
+.modal-desc { font-size: .82rem; color: var(--text2); margin-bottom: 14px; }
+.modal-card .input { margin-bottom: 10px; }
+
+/* Coinslot settings modal. Keep these names aligned with the markup below. */
+.modal-overlay { display: none; position: fixed; inset: 0; z-index: 1100; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.68); }
+.modal-overlay[aria-hidden="false"] { display: flex; }
+.modal-box { position: relative; width: 100%; max-width: 420px; max-height: calc(100vh - 40px); overflow-y: auto; padding: 24px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.45); }
+.modal-title { margin: 0 0 8px; color: var(--text); font-size: 1rem; }
+.modal-actions { display: flex; align-items: center; margin-top: 18px; }
+
+/* ── Voucher Print Styles ─────────────────────────────────────────────────── */
+.voucher-grid { width: 100%; overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+.voucher-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.voucher-table th { text-align: left; padding: 9px 12px; color: var(--text2); background: var(--bg3); border-bottom: 1px solid var(--border); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.voucher-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text); }
+.voucher-table tr:last-child td { border-bottom: none; }
+.voucher-table tr.used-row td { opacity: .5; }
+.voucher-table tr.selected-row { background: var(--accent-bg); }
+.voucher-table tr:hover td { background: var(--nav-hover); }
+.voucher-table tr.selected-row:hover td { background: var(--accent-bg); }
+.v-code-cell { font-family: 'Courier New', monospace; font-size: .9rem; font-weight: 800; letter-spacing: .1em; color: var(--accent); }
+
+/* ── Voucher Print Media ──────────────────────────────────────────────────── */
+@media print {
+  .admin-sidebar, .mobile-header, .page-header, .widget-header .btn, #print-vouchers-btn, #btn-gen-vouchers, .action-btn, .v-sel-cb, #voucher-select-bar, #btn-delete-selected, #btn-delete-used { display: none !important; }
+  .main-content { margin-left: 0 !important; }
+  .content-area { padding: 0 !important; }
+  .voucher-grid { border: none; overflow: visible; }
+  .voucher-table { font-size: 11px; }
+  .voucher-table th, .voucher-table td { padding: 6px 8px; color: #000 !important; border-color: #ccc !important; background: none !important; opacity: 1 !important; }
+  .voucher-table th { background: #f0f0f0 !important; }
+  .v-code-cell { color: #000 !important; }
+  body { background: #fff; color: #000; }
+  .tab-content { display: none !important; }
+  #tab-vouchers { display: block !important; }
+  .voucher-gen-panel { display: none !important; }
+}
+
+/* ── Rate Tier Panel ─────────────────────────────────────────────────────── */
+.rate-tier-panel { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--card-bg); }
+.rate-tier-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--bg3); }
+.rate-tier-panel-label { display: block; font-size: .82rem; font-weight: 700; color: var(--text); }
+.rate-tier-panel-hint { display: block; font-size: .72rem; color: var(--text2); margin-top: 1px; }
+.rate-tier-list { display: flex; flex-direction: column; }
+.rate-tier-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--card-bg); transition: background .12s; }
+.rate-tier-row:hover { background: var(--nav-hover); }
+.rate-tier-index { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--accent-bg); color: var(--accent); font-size: 11px; font-weight: 800; flex-shrink: 0; }
+.rate-tier-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rate-tier-field label { font-size: .7rem; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.rate-tier-field { flex: 1 1 110px; }
+.rate-tier-field input, .rate-tier-field select { font-family: ui-monospace, monospace; font-size: 14px; font-weight: 700; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text); width: 100%; height: 36px; }
+.rate-tier-field input:focus, .rate-tier-field select:focus { outline: none; border-color: var(--accent); }
+.rate-tier-sep { font-size: 16px; color: var(--text2); font-weight: 700; text-align: center; padding-bottom: 8px; }
+.rate-tier-badge { display: inline-flex; align-items: center; justify-content: center; padding: 7px 10px; border-radius: 6px; background: var(--accent-bg); border: 1px solid var(--border); color: var(--accent); font-size: 12px; font-weight: 800; white-space: nowrap; min-width: 70px; height: 36px; box-sizing: border-box; }
+.rate-tier-del { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; color: var(--text2); flex-shrink: 0; align-self: end; margin-bottom: 3px; transition: background .12s, color .12s; }
+.rate-tier-del:hover { background: var(--danger-bg); color: var(--danger-color); border-color: var(--danger-color); }
+.rate-tier-empty { display: flex; align-items: center; gap: 10px; padding: 18px 14px; color: var(--text2); font-size: .82rem; border-top: 1px solid var(--border); }
+.rate-tier-empty svg { flex-shrink: 0; opacity: .5; }
+.btn-sm { font-size: .78rem; padding: 6px 12px; }
+
+@media (max-width: 600px) {
+  .rate-tier-panel, .rate-tier-list { min-width: 0; }
+  .rate-tier-panel-header { align-items: flex-start; flex-wrap: wrap; gap: 7px; padding: 9px 10px; }
+  .rate-tier-panel-label { font-size: .76rem; }
+  .rate-tier-panel-hint { font-size: .64rem; line-height: 1.35; }
+  .rate-tier-panel-header .btn-sm { margin-left: auto; font-size: .68rem; padding: 5px 8px; }
+  .rate-tier-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: 7px; padding: 9px 10px; }
+  .rate-tier-field { width: auto; min-width: 0; flex: none; }
+  .rate-tier-field label { font-size: .60rem; line-height: 1.15; letter-spacing: .03em; }
+  .rate-tier-field input, .rate-tier-field select { min-width: 0; height: 32px; padding: 5px 7px; font-size: 12px; border-radius: 5px; }
+  .rate-tier-sep { display: none; }
+  .rate-tier-badge { grid-column: 1 / -1; width: 100%; min-width: 0; max-width: 100%; height: auto; min-height: 30px; justify-content: flex-start; white-space: normal; overflow-wrap: anywhere; line-height: 1.25; padding: 6px 7px; font-size: 10px; }
+  .rate-tier-del { grid-column: 2; justify-self: end; width: 28px; height: 28px; margin: 0; }
+  .rate-tier-empty { gap: 7px; padding: 12px 10px; font-size: .70rem; }
+}
+
+/* ── Section Header ───────────────────────────────────────────────────────── */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.section-header h3 { font-size: 1rem; font-weight: 600; color: var(--text); }
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9000;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: .85rem;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+  max-width: 320px;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.success { background: #238636; color: #fff; }
+#toast.error { background: #da3633; color: #fff; }
+
+/* ── Voucher gen form ─────────────────────────────────────────────────────── */
+.voucher-gen-panel { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+.voucher-gen-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 500px) { .voucher-gen-grid { grid-template-columns: repeat(4, 1fr); } }
+
+/* Dark admin identity */
+html[data-theme="dark"] body {
+  background: #f5f8fc;
+  color: #132238;
+  -webkit-font-smoothing: antialiased;
+}
+.login-card,
+.stat-card,
+.widget,
+.form-card {
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(30,64,110,.08);
+}
+.login-card { border-color: #dbe5f1; }
+.admin-sidebar { box-shadow: 8px 0 24px rgba(30,64,110,.05); }
+.sidebar-collapse { background: #f5f8fc; }
+.nav-item { border-radius: 10px; }
+.nav-item.active { font-weight: 700; }
+.page-header { box-shadow: 0 1px 0 #dbe5f1; }
+.btn-primary {
+  box-shadow: 0 6px 14px rgba(37,99,235,.18);
+}
+.btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; opacity: 1; }
+.btn-outline { background: #fff; }
+.input { background: #fff; border-radius: 9px; }
+.table-wrap, .voucher-grid { border-radius: 12px; }
+.modal-backdrop { background: rgba(15,35,65,.42); }
+.modal-card {
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(15,35,65,.18);
+}
+#trial-banner {
+  background: #fff8e6 !important;
+  border-color: #f4d58a !important;
+}
+#trial-banner strong,
+#trial-banner #trial-countdown { color: #9a6700 !important; }
+#trial-banner p { color: #806000 !important; }
+#toast { box-shadow: 0 12px 30px rgba(30,64,110,.16); }
+</style>
+<style id="premium-redesign-v3">
+/* Premium Compact Redesign â€” visual-only override */
+:root{
+  --premium-navy:#0f172a;
+  --premium-blue:#2563eb;
+  --premium-blue2:#3b82f6;
+  --premium-soft:#f6f8fc;
+  --premium-line:#e5eaf2;
+}
+html[data-theme="dark"]{
+  --bg:#f6f8fc; --bg2:#ffffff; --bg3:#f1f5f9; --border:#e5eaf2;
+  --text:#0f172a; --text2:#64748b; --accent:#2563eb; --accent-bg:rgba(37,99,235,.09);
+  --green:#059669; --red:#dc2626; --amber:#b7791f;
+  --sidebar-bg:#0f172a; --sidebar-border:rgba(255,255,255,.07);
+  --nav-hover:rgba(255,255,255,.07); --nav-active-bg:linear-gradient(135deg,rgba(59,130,246,.26),rgba(37,99,235,.12));
+  --nav-active-color:#ffffff; --input-bg:#ffffff; --card-bg:#ffffff;
+  --shadow:0 8px 24px rgba(15,23,42,.06);
+}
+body{background:linear-gradient(180deg,#f8fafc 0%,#f4f7fb 100%);color:var(--text);}
+.admin-sidebar{background:linear-gradient(180deg,#111827 0%,#0f172a 100%)!important;border-right:1px solid rgba(255,255,255,.07)!important;box-shadow:8px 0 24px rgba(15,23,42,.09)!important;}
+.sidebar-head{border-bottom:1px solid rgba(255,255,255,.08)!important;padding:15px 14px 13px!important;}
+.brand-logo{border-radius:10px!important;background:rgba(255,255,255,.06);padding:3px;}
+.brand-name{color:#fff!important;font-weight:800!important;letter-spacing:.01em;}
+.brand-hint,.nav-section-label{color:#7f8ca3!important;}
+.sidebar-collapse{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.08)!important;color:#cbd5e1!important;}
+.sidebar-collapse:hover{background:rgba(59,130,246,.18)!important;color:#fff!important;}
+.nav-item{color:#aab5c5!important;border-radius:9px!important;padding:7px 9px!important;}
+.nav-item:hover{background:rgba(255,255,255,.06)!important;color:#fff!important;}
+.nav-item.active{background:linear-gradient(135deg,rgba(59,130,246,.30),rgba(37,99,235,.14))!important;color:#fff!important;box-shadow:inset 3px 0 0 #60a5fa;}
+.nav-icon{width:29px!important;height:29px!important;border-radius:8px!important;background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.07)!important;color:#aab5c5!important;}
+.nav-item:hover .nav-icon,.nav-item.active .nav-icon{background:rgba(59,130,246,.18)!important;border-color:rgba(96,165,250,.28)!important;color:#bfdbfe!important;}
+.sidebar-footer{border-top:1px solid rgba(255,255,255,.08)!important;}
+.nav-danger{color:#fca5a5!important;} .nav-danger .nav-icon{background:rgba(220,38,38,.12)!important;border-color:rgba(248,113,113,.18)!important;color:#fca5a5!important;}
+.page-header{padding:14px 20px!important;background:rgba(255,255,255,.90)!important;backdrop-filter:blur(12px);border-bottom:1px solid var(--premium-line)!important;box-shadow:0 4px 14px rgba(15,23,42,.035)!important;}
+.page-kicker{font-size:.66rem!important;letter-spacing:.12em!important;color:#94a3b8!important;}
+.page-title{font-size:1.12rem!important;font-weight:800!important;letter-spacing:-.015em;}
+.content-area{max-width:920px!important;padding:18px 20px 24px!important;}
+.stat-card,.widget,.form-card,.rate-tier-panel,.voucher-gen-panel{border:1px solid var(--premium-line)!important;box-shadow:0 8px 24px rgba(15,23,42,.045)!important;}
+.stat-card{border-radius:14px!important;padding:14px 12px!important;text-align:left!important;position:relative;overflow:hidden;}
+.stat-card:before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#60a5fa,#2563eb);}
+.stat-label{font-size:.66rem!important;letter-spacing:.08em!important;margin-bottom:5px!important;color:#64748b!important;}
+.stat-value{font-size:1.38rem!important;font-weight:800!important;letter-spacing:-.03em!important;color:#0f172a!important;}
+.widget,.form-card{border-radius:14px!important;padding:15px!important;margin-bottom:13px!important;}
+.widget-title,.form-title{font-weight:750!important;letter-spacing:-.01em!important;}
+.health-grid{gap:8px!important;}
+.health-item{padding:10px 7px!important;background:linear-gradient(180deg,#f8fafc,#f3f6fa)!important;border:1px solid #edf1f6;border-radius:10px!important;}
+.health-label{font-size:.62rem!important;color:#94a3b8!important;}
+.health-value{font-size:.92rem!important;font-weight:800!important;}
+.table-wrap,.voucher-grid{border-radius:11px!important;border-color:#e7ebf1!important;background:#fff;}
+.table th,.voucher-table th{background:#f8fafc!important;color:#718096!important;font-size:.68rem!important;}
+.table td,.voucher-table td{padding:9px 11px!important;}
+.input{border-radius:9px!important;border-color:#dfe5ee!important;padding:8px 11px!important;box-shadow:0 1px 0 rgba(15,23,42,.02) inset;}
+.input:focus{border-color:#60a5fa!important;box-shadow:0 0 0 3px rgba(59,130,246,.10)!important;}
+.btn{border-radius:9px!important;padding:8px 14px!important;font-weight:700!important;}
+.btn-primary{background:linear-gradient(135deg,#2563eb,#3b82f6)!important;border-color:#2563eb!important;box-shadow:0 7px 16px rgba(37,99,235,.16)!important;}
+.btn-primary:hover{filter:brightness(.98);}
+.btn-outline{background:#fff!important;border-color:#dfe5ee!important;}
+.badge{font-size:.68rem!important;padding:3px 7px!important;}
+.modal-card,.modal-box{border-radius:16px!important;border-color:#e5eaf2!important;box-shadow:0 22px 60px rgba(15,23,42,.18)!important;}
+.login-screen{background:radial-gradient(circle at top,#eaf2ff 0,#f7f9fc 34%,#f3f6fa 100%)!important;}
+.login-card{max-width:350px!important;border-radius:18px!important;padding:30px 27px!important;box-shadow:0 24px 70px rgba(15,23,42,.11)!important;position:relative;overflow:hidden;}
+.login-card:before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#2563eb,#60a5fa,#2563eb);}
+.login-logo{width:52px!important;height:52px!important;border-radius:13px!important;box-shadow:0 8px 20px rgba(37,99,235,.12);}
+.login-card h1{font-size:1.16rem!important;font-weight:800!important;letter-spacing:-.02em;}
+.mobile-header{background:#0f172a!important;border-bottom:1px solid rgba(255,255,255,.07)!important;}
+.mobile-menu-btn{color:#e5e7eb!important}.mobile-header-title{color:#fff!important}.mobile-header-logo{border-radius:8px!important;}
+/* Dashboard v2 â€” compact premium sales + board health */
+.premium-sales-grid{gap:10px!important;}
+.premium-stat{min-height:132px!important;padding:13px 13px 12px!important;border-radius:16px!important;background:#fff!important;border:1px solid #e7ebf2!important;box-shadow:0 8px 22px rgba(15,23,42,.045)!important;}
+.premium-stat:before{display:none!important;}
+.premium-stat:after{content:'';position:absolute;inset:auto -26px -38px auto;width:90px;height:90px;border-radius:50%;background:var(--card-glow,rgba(59,130,246,.08));pointer-events:none;}
+.stat-topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
+.stat-icon{width:31px;height:31px;border-radius:10px;display:grid;place-items:center;background:var(--card-soft,#eff6ff);color:var(--card-accent,#2563eb);border:1px solid color-mix(in srgb,var(--card-accent,#2563eb) 14%,transparent);}
+.stat-icon svg{width:16px;height:16px;}
+.stat-chip{font-size:.52rem;font-weight:800;letter-spacing:.09em;color:var(--card-accent,#2563eb);background:var(--card-soft,#eff6ff);padding:3px 6px;border-radius:999px;}
+.premium-stat .stat-label{font-size:.61rem!important;letter-spacing:.07em!important;margin:0 0 1px!important;}
+.premium-stat .stat-value{font-size:1.48rem!important;line-height:1.15!important;}
+.stat-foot{display:block;margin-top:5px;font-size:.61rem;color:#94a3b8;position:relative;z-index:1;}
+.users-card{--card-accent:#2563eb;--card-soft:#eff6ff;--card-glow:rgba(37,99,235,.09)}
+.today-card{--card-accent:#0f9f6e;--card-soft:#ecfdf5;--card-glow:rgba(16,185,129,.10)}
+.total-card{--card-accent:#7c3aed;--card-soft:#f5f3ff;--card-glow:rgba(124,58,237,.09)}
+.tx-card{--card-accent:#d97706;--card-soft:#fffbeb;--card-glow:rgba(217,119,6,.10)}
+.board-health-card{padding:0!important;overflow:hidden;background:#fff!important;}
+.health-header{margin:0!important;padding:13px 14px!important;border-bottom:1px solid #edf1f6!important;background:linear-gradient(180deg,#fff,#fbfcfe);}
+.health-title-wrap{display:flex;align-items:center;gap:9px;}
+.health-title-icon{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:#eef4ff;color:#2563eb;}
+.health-title-icon svg{width:17px;height:17px;}
+.health-subtitle{display:block;font-size:.61rem;color:#94a3b8;margin-top:1px;}
+.health-status-pill{display:inline-flex;align-items:center;gap:5px;font-size:.55rem;font-weight:800;letter-spacing:.08em;color:#087f5b;background:#ecfdf5;border:1px solid #d1fae5;padding:4px 7px;border-radius:999px;}
+.health-status-pill>span{width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.12);}
+.premium-health-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:0!important;padding:7px!important;}
+.premium-health-grid .health-item{min-height:86px!important;padding:10px 8px!important;border:0!important;border-radius:10px!important;background:transparent!important;text-align:left!important;position:relative;}
+.premium-health-grid .health-item:hover{background:#f8fafc!important;}
+.health-mini-icon{display:inline-flex;align-items:center;justify-content:center;min-width:25px;height:20px;padding:0 5px;border-radius:6px;background:#f1f5f9;color:#64748b;font-size:.48rem;font-weight:900;letter-spacing:.03em;margin-bottom:9px;}
+.premium-health-grid .health-label{display:block;font-size:.57rem!important;letter-spacing:.07em!important;margin-bottom:2px;}
+.premium-health-grid .health-value{display:block;font-size:.9rem!important;line-height:1.25;color:#0f172a!important;}
+.premium-health-grid .health-detail{font-size:.56rem!important;margin-top:2px!important;color:#94a3b8!important;}
+.wan-health .health-value{color:#087f5b!important;}
+@media(max-width:700px){.premium-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.premium-stat{min-height:124px!important}.stat-foot{font-size:.58rem}.health-header{padding:11px 12px!important}}
+@media(max-width:430px){.premium-sales-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.premium-stat{padding:11px!important;min-height:120px!important}.stat-icon{width:28px;height:28px}.premium-stat .stat-value{font-size:1.28rem!important}.stat-chip{font-size:.47rem}.premium-health-grid .health-item{min-height:80px!important}}
+@media(max-width:600px){.content-area{padding:12px!important}.stats-grid{gap:9px!important}.stat-card{padding:12px 11px!important}.widget,.form-card{padding:13px!important;border-radius:12px!important}.page-header{padding:12px 14px!important}}
+</style>
+
+
+<style id="system-lite-redesign">
+/* System page â€” lite/static redesign */
+#tab-system{
+  --sys-blue:#2563eb;
+  --sys-cyan:#0891b2;
+  --sys-green:#059669;
+  --sys-orange:#d97706;
+  --sys-red:#dc2626;
+  --sys-purple:#7c3aed;
+}
+#tab-system .form-card{
+  position:relative;
+  overflow:hidden;
+  background:#fff !important;
+  border:1px solid #e5e7eb !important;
+  border-radius:12px !important;
+  box-shadow:none !important;
+  padding:14px !important;
+}
+#tab-system .form-card::before{
+  content:"";
+  position:absolute;
+  top:0;left:0;bottom:0;
+  width:3px;
+  background:#cbd5e1;
+}
+#tab-system .form-card:nth-of-type(1)::before{background:var(--sys-cyan)}
+#tab-system .form-card:nth-of-type(2)::before{background:var(--sys-purple)}
+#tab-system .form-card:nth-of-type(3)::before{background:var(--sys-blue)}
+#tab-system .form-card:nth-of-type(4)::before{background:var(--sys-orange)}
+#tab-system .form-card:nth-of-type(5)::before{background:var(--sys-red)}
+
+#tab-system .form-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:-2px 0 12px !important;
+  padding:0 0 9px !important;
+  border-bottom:1px solid #edf0f4 !important;
+  font-size:.84rem !important;
+  font-weight:800 !important;
+  color:#172033 !important;
+}
+#tab-system .form-title::before{
+  content:"";
+  width:8px;height:8px;
+  border-radius:2px;
+  background:#94a3b8;
+  flex:0 0 auto;
+}
+#tab-system .form-card:nth-of-type(1) .form-title::before{background:var(--sys-cyan)}
+#tab-system .form-card:nth-of-type(2) .form-title::before{background:var(--sys-purple)}
+#tab-system .form-card:nth-of-type(3) .form-title::before{background:var(--sys-blue)}
+#tab-system .form-card:nth-of-type(4) .form-title::before{background:var(--sys-orange)}
+#tab-system .form-card:nth-of-type(5) .form-title::before{background:var(--sys-red)}
+
+#tab-system #system-info-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px !important;
+}
+#tab-system #system-info-grid .info-item{
+  background:#f8fafc !important;
+  border:1px solid #edf1f5;
+  border-radius:8px !important;
+  padding:8px 10px !important;
+}
+#tab-system #system-info-grid .info-label{
+  font-size:.58rem !important;
+  color:#94a3b8 !important;
+  letter-spacing:.06em;
+}
+#tab-system #system-info-grid .info-value{
+  font-size:.78rem !important;
+  font-weight:700 !important;
+  color:#1e293b !important;
+  margin-top:2px;
+}
+#tab-system .firmware-update-copy,
+#tab-system .firmware-update-warning{
+  font-size:.72rem !important;
+}
+#tab-system .firmware-update-badge{
+  background:#f3e8ff !important;
+  color:#7c3aed !important;
+  border:1px solid #e9d5ff;
+}
+#tab-system .input{
+  height:35px;
+  border-radius:7px !important;
+  box-shadow:none !important;
+  background:#fbfdff !important;
+}
+#tab-system .form-row label{
+  font-size:.71rem !important;
+  color:#64748b !important;
+}
+
+/* Different button colors per System action */
+#manual-update-btn{
+  background:#7c3aed !important;
+  border-color:#7c3aed !important;
+  color:#fff !important;
+  box-shadow:none !important;
+}
+#change-pw-btn{
+  background:#2563eb !important;
+  border-color:#2563eb !important;
+  color:#fff !important;
+  box-shadow:none !important;
+}
+#save-reboot-btn{
+  background:#d97706 !important;
+  border-color:#d97706 !important;
+  color:#fff !important;
+  box-shadow:none !important;
+}
+#reboot-btn{
+  background:#dc2626 !important;
+  border-color:#dc2626 !important;
+  color:#fff !important;
+  box-shadow:none !important;
+}
+#shutdown-btn{
+  background:#fff !important;
+  border:1px solid #475569 !important;
+  color:#334155 !important;
+  box-shadow:none !important;
+}
+#manual-update-btn:hover,
+#change-pw-btn:hover,
+#save-reboot-btn:hover,
+#reboot-btn:hover{filter:brightness(.94)}
+#shutdown-btn:hover{background:#f1f5f9 !important}
+
+/* Give the System sidebar entry its own static identity */
+.nav-item[data-tab="system"] .nav-icon{
+  background:rgba(14,165,233,.12) !important;
+  border-color:rgba(56,189,248,.18) !important;
+  color:#7dd3fc !important;
+}
+.nav-item[data-tab="system"].active{
+  background:rgba(8,145,178,.18) !important;
+  box-shadow:inset 3px 0 0 #22d3ee !important;
+}
+.nav-item[data-tab="system"].active .nav-icon{
+  background:rgba(34,211,238,.14) !important;
+  color:#a5f3fc !important;
+}
+
+@media(max-width:520px){
+  #tab-system #system-info-grid{grid-template-columns:1fr 1fr}
+  #tab-system .form-card{padding:12px !important}
+  #tab-system .form-actions{gap:7px}
+  #tab-system .btn{padding:7px 11px !important;font-size:.75rem !important}
+}
+</style>
+
+
+<style id="dashboard-system-info-move">
+/* System Info moved to Dashboard â€” compact/static */
+.dashboard-system-info-card{
+  padding:0 !important;
+  overflow:hidden;
+  background:#fff !important;
+  border:1px solid #e5e7eb !important;
+  border-radius:11px !important;
+  box-shadow:none !important;
+}
+.dashboard-system-info-header{
+  margin:0 !important;
+  padding:11px 13px !important;
+  border-bottom:1px solid #edf0f4 !important;
+  background:#fbfcfe !important;
+}
+.dashboard-system-info-sub{
+  display:block;
+  margin-top:1px;
+  font-size:.60rem;
+  color:#94a3b8;
+}
+.dashboard-system-info-badge{
+  font-size:.52rem;
+  font-weight:800;
+  letter-spacing:.08em;
+  padding:3px 7px;
+  border-radius:999px;
+  color:#2563eb;
+  background:#eff6ff;
+  border:1px solid #dbeafe;
+}
+.dashboard-system-info-card #system-info-grid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:0 !important;
+  padding:7px;
+}
+.dashboard-system-info-card #system-info-grid .info-item{
+  min-width:0;
+  padding:8px 9px !important;
+  background:transparent !important;
+  border:0 !important;
+  border-radius:7px !important;
+}
+.dashboard-system-info-card #system-info-grid .info-item:hover{
+  background:#f8fafc !important;
+}
+.dashboard-system-info-card #system-info-grid .info-label{
+  display:block;
+  font-size:.54rem !important;
+  color:#94a3b8 !important;
+  letter-spacing:.06em !important;
+  margin-bottom:2px !important;
+}
+.dashboard-system-info-card #system-info-grid .info-value{
+  display:block;
+  font-size:.72rem !important;
+  line-height:1.25;
+  font-weight:700 !important;
+  color:#1e293b !important;
+  word-break:break-word;
+}
+@media(max-width:760px){
+  .dashboard-system-info-card #system-info-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:420px){
+  .dashboard-system-info-card #system-info-grid .info-item{
+    padding:7px !important;
+  }
+  .dashboard-system-info-card #system-info-grid .info-value{
+    font-size:.68rem !important;
+  }
+}
+</style>
+
+<style id="tester-ui-adaptation-v1">
+/* Tester UI adaptation - visual-only and scoped to existing portal markup. */
+
+/* WiFi Rates: retain the current IDs/handlers while using the tester's richer tier presentation. */
+#tab-rates .rate-tier-panel{
+  border:1px solid #dbe7ff;
+  border-radius:18px;
+  overflow:hidden;
+  background:linear-gradient(180deg,#f8fbff 0%,#eef5ff 100%);
+  box-shadow:0 12px 30px rgba(37,99,235,.08);
+}
+#tab-rates .rate-tier-panel-header{
+  padding:16px 18px;
+  border-bottom:1px solid rgba(255,255,255,.15);
+  background:linear-gradient(135deg,#2563eb 0%,#3b82f6 45%,#7c3aed 100%);
+}
+#tab-rates .rate-tier-panel-label{
+  font-size:.95rem;
+  font-weight:800;
+  color:#fff;
+  letter-spacing:.02em;
+}
+#tab-rates .rate-tier-panel-hint{
+  margin-top:4px;
+  color:rgba(255,255,255,.88);
+  line-height:1.45;
+}
+#tab-rates #btn-add-tier{
+  background:#fff !important;
+  color:#2563eb !important;
+  border:1px solid rgba(255,255,255,.95) !important;
+  border-radius:10px !important;
+  font-weight:800 !important;
+  box-shadow:0 8px 18px rgba(15,23,42,.12);
+}
+#tab-rates #btn-add-tier:hover{
+  background:#eff6ff !important;
+  color:#1d4ed8 !important;
+}
+#tab-rates .rate-tier-list{
+  gap:12px;
+  padding:16px;
+}
+#tab-rates .rate-tier-row{
+  position:relative;
+  display:flex;
+  align-items:flex-end;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:14px;
+  border:1px solid #dbe7ff;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 8px 20px rgba(15,23,42,.05);
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+}
+#tab-rates .rate-tier-row:hover{
+  transform:translateY(-2px);
+  border-color:#93c5fd;
+  box-shadow:0 14px 28px rgba(37,99,235,.10);
+}
+#tab-rates .rate-tier-row:nth-child(4n+1){border-left:5px solid #2563eb;}
+#tab-rates .rate-tier-row:nth-child(4n+2){border-left:5px solid #10b981;}
+#tab-rates .rate-tier-row:nth-child(4n+3){border-left:5px solid #f59e0b;}
+#tab-rates .rate-tier-row:nth-child(4n+4){border-left:5px solid #7c3aed;}
+#tab-rates .rate-tier-index{
+  width:30px;
+  height:30px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#dbeafe,#bfdbfe);
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:900;
+  box-shadow:inset 0 0 0 1px rgba(37,99,235,.12);
+}
+#tab-rates .rate-tier-field{gap:5px;flex:1 1 120px;}
+#tab-rates .rate-tier-field label{
+  color:#64748b;
+  font-size:.68rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+#tab-rates .rate-tier-field input,
+#tab-rates .rate-tier-field select{
+  height:40px;
+  padding:8px 10px;
+  border:1px solid #dbe7ff;
+  border-radius:10px;
+  background:#f8fbff;
+  color:#0f172a;
+  font-family:ui-monospace,monospace;
+  font-size:14px;
+  font-weight:800;
+}
+#tab-rates .rate-tier-field input:focus,
+#tab-rates .rate-tier-field select:focus{
+  border-color:#60a5fa;
+  background:#fff;
+  box-shadow:0 0 0 4px rgba(59,130,246,.10);
+}
+#tab-rates .rate-tier-sep{padding-bottom:10px;color:#94a3b8;font-size:18px;font-weight:900;}
+#tab-rates .rate-tier-badge{
+  min-width:90px;
+  height:40px;
+  padding:8px 12px;
+  border:1px solid #a7f3d0;
+  border-radius:999px;
+  background:linear-gradient(135deg,#ecfdf5,#d1fae5);
+  color:#047857;
+  font-size:12px;
+  font-weight:900;
+}
+#tab-rates .rate-tier-del{
+  width:34px;
+  height:34px;
+  margin-bottom:3px;
+  border:1px solid #fecaca;
+  border-radius:10px;
+  background:#fff5f5;
+  color:#dc2626;
+}
+#tab-rates .rate-tier-del:hover{background:#dc2626;color:#fff;border-color:#dc2626;transform:scale(1.05);}
+#tab-rates .rate-tier-empty{
+  margin:16px;
+  padding:16px 14px;
+  border:1px dashed #fdba74;
+  border-radius:14px;
+  background:linear-gradient(180deg,#fff7ed 0%,#fffbeb 100%);
+  color:#92400e;
+}
+#tab-rates .rate-tier-empty svg{color:#f59e0b;}
+#tab-rates > .form-card:nth-child(2){
+  border:1px solid #dbe7ff !important;
+  background:linear-gradient(180deg,#fff 0%,#f8fbff 100%) !important;
+  box-shadow:0 12px 30px rgba(37,99,235,.06) !important;
+}
+#tab-rates > .form-card:nth-child(2) .form-title{color:#1d4ed8 !important;}
+#tab-rates > .form-card:nth-child(3){
+  border-left:4px solid #f59e0b !important;
+  background:linear-gradient(180deg,#fff 0%,#fffbeb 100%) !important;
+}
+#tab-rates #set-flat-rate{border-color:#fcd34d !important;background:#fffdf5 !important;}
+#tab-rates #save-rates-btn{
+  border-color:#2563eb !important;
+  border-radius:12px !important;
+  background:linear-gradient(135deg,#2563eb,#7c3aed) !important;
+  color:#fff !important;
+  box-shadow:0 10px 20px rgba(37,99,235,.16) !important;
+}
+#tab-rates #rates-save-status{font-weight:700;color:#475569 !important;}
+
+/* Settings: colored cards and clearer field grouping, without changing any settings control. */
+#tab-settings{
+  --settings-blue:#2563eb;
+  --settings-violet:#7c3aed;
+  --settings-cyan:#0891b2;
+  --settings-green:#059669;
+  --settings-amber:#d97706;
+  --settings-teal:#0f766e;
+  --settings-orange:#ea580c;
+  --settings-red:#dc2626;
+}
+#tab-settings > .form-card{
+  --settings-accent:#64748b;
+  --settings-soft:#f8fafc;
+  --settings-line:#e2e8f0;
+  position:relative;
+  overflow:hidden;
+  padding:16px !important;
+  border:1px solid var(--settings-line) !important;
+  border-radius:16px !important;
+  background:linear-gradient(180deg,#fff 0%,#fcfdff 100%) !important;
+  box-shadow:0 9px 24px rgba(15,23,42,.045) !important;
+}
+#tab-settings > .form-card::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:4px;
+  background:var(--settings-accent);
+}
+#tab-settings > .form-card:nth-of-type(1){--settings-accent:var(--settings-blue);--settings-soft:#eff6ff;--settings-line:#dbeafe;}
+#tab-settings > .form-card:nth-of-type(2){--settings-accent:var(--settings-violet);--settings-soft:#f5f3ff;--settings-line:#e9d5ff;}
+#tab-settings > .form-card:nth-of-type(3){--settings-accent:var(--settings-cyan);--settings-soft:#ecfeff;--settings-line:#cffafe;}
+#tab-settings > .form-card:nth-of-type(4){--settings-accent:var(--settings-green);--settings-soft:#ecfdf5;--settings-line:#d1fae5;}
+#tab-settings > .form-card:nth-of-type(5){--settings-accent:var(--settings-amber);--settings-soft:#fffbeb;--settings-line:#fde68a;}
+#tab-settings > .form-card:nth-of-type(6){--settings-accent:var(--settings-teal);--settings-soft:#f0fdfa;--settings-line:#ccfbf1;}
+#tab-settings > .form-card:nth-of-type(7){--settings-accent:var(--settings-orange);--settings-soft:#fff7ed;--settings-line:#fed7aa;}
+#tab-settings > .form-card:nth-of-type(8){--settings-accent:var(--settings-red);--settings-soft:#fff1f2;--settings-line:#fecdd3;}
+#tab-settings > .form-card .form-title{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin:-2px 0 13px !important;
+  padding:0 0 10px !important;
+  border-bottom:1px solid rgba(100,116,139,.16) !important;
+  color:#172033 !important;
+  font-size:.88rem !important;
+  font-weight:850 !important;
+}
+#tab-settings > .form-card .form-title::before{
+  content:"";
+  width:30px;
+  height:30px;
+  flex:0 0 30px;
+  border-radius:9px;
+  background:var(--settings-soft);
+  box-shadow:inset 0 0 0 8px var(--settings-soft);
+}
+#tab-settings > .form-card:nth-of-type(1) .form-title::before{background:linear-gradient(135deg,#2563eb,#60a5fa);box-shadow:none;}
+#tab-settings > .form-card:nth-of-type(2) .form-title::before{background:linear-gradient(135deg,#7c3aed,#a78bfa);box-shadow:none;}
+#tab-settings > .form-card:nth-of-type(3) .form-title::before{background:linear-gradient(135deg,#0891b2,#22d3ee);box-shadow:none;}
+#tab-settings > .form-card:nth-of-type(4) .form-title::before{background:linear-gradient(135deg,#059669,#34d399);box-shadow:none;}
+#tab-settings > .form-card:nth-of-type(5) .form-title::before{background:linear-gradient(135deg,#d97706,#fbbf24);box-shadow:none;}
+#tab-settings > .form-card:nth-of-type(6) .form-title::before{background:linear-gradient(135deg,#0f766e,#2dd4bf);box-shadow:none;}
+#tab-settings > .form-card:nth-of-type(7) .form-title::before{background:linear-gradient(135deg,#ea580c,#fb923c);box-shadow:none;}
+#tab-settings > .form-card:nth-of-type(8) .form-title::before{background:linear-gradient(135deg,#dc2626,#fb7185);box-shadow:none;}
+#tab-settings > .form-card .form-row{
+  padding:10px 11px;
+  margin-bottom:9px;
+  border:1px solid #edf1f5;
+  border-radius:11px;
+  background:#fbfdff;
+}
+#tab-settings > .form-card .form-row label{color:#475569 !important;font-size:.71rem !important;font-weight:750 !important;}
+#tab-settings > .form-card .form-row p,
+#tab-settings > .form-card .form-row small{color:#94a3b8 !important;line-height:1.4;}
+#tab-settings > .form-card .input{
+  min-height:37px;
+  border:1px solid #dfe6ef !important;
+  border-radius:9px !important;
+  background:#fff !important;
+  color:#0f172a !important;
+  box-shadow:none !important;
+}
+#tab-settings > .form-card .input:focus{
+  border-color:var(--settings-accent) !important;
+  box-shadow:0 0 0 3px rgba(37,99,235,.11) !important;
+}
+#tab-settings .portal-toggle-grid{gap:9px !important;}
+#tab-settings .portal-toggle-card{
+  border:1px solid #e8e2ff !important;
+  border-radius:12px !important;
+  background:linear-gradient(180deg,#fff,#faf8ff) !important;
+  box-shadow:0 5px 14px rgba(124,58,237,.04);
+}
+#tab-settings .portal-toggle-card:has(input:checked){
+  border-color:#c4b5fd !important;
+  background:#f5f3ff !important;
+  box-shadow:0 0 0 2px rgba(124,58,237,.07) !important;
+}
+#tab-settings .portal-toggle-card .toggle-switch input:checked + .toggle-slider{background:#7c3aed !important;}
+#tab-settings .notice-amber{
+  border:1px solid #fde68a !important;
+  border-radius:10px !important;
+  background:linear-gradient(180deg,#fffdf3,#fffbeb) !important;
+  color:#8a5a00 !important;
+}
+#tab-settings #save-wifi-btn{background:linear-gradient(135deg,#2563eb,#60a5fa) !important;border-color:#2563eb !important;color:#fff !important;}
+#tab-settings #btn-add-domain,
+#tab-settings #btn-cancel-domain{border-color:#fecdd3 !important;color:#be123c !important;background:#fff !important;}
+#tab-settings #btn-confirm-domain,
+#tab-settings #btn-save-filtering{background:linear-gradient(135deg,#dc2626,#fb7185) !important;border-color:#dc2626 !important;color:#fff !important;}
+#tab-settings #save-settings-btn{
+  min-height:46px;
+  margin-top:4px;
+  border:0 !important;
+  border-radius:13px !important;
+  background:linear-gradient(135deg,#0f172a 0%,#2563eb 52%,#7c3aed 100%) !important;
+  color:#fff !important;
+  font-weight:850 !important;
+  box-shadow:0 12px 28px rgba(37,99,235,.20) !important;
+}
+
+/* Sessions: map the tester's two-card treatment onto the current Sessions/Members/Devices widgets. */
+#tab-sessions{
+  --sess-blue:#2563eb;
+  --sess-green:#059669;
+  --sess-amber:#b7791f;
+  --sess-red:#c0394b;
+  --sess-text:#1e293b;
+  --sess-muted:#64748b;
+  --sess-line:#e5e7eb;
+}
+#tab-sessions > .widget{
+  padding:0 !important;
+  overflow:hidden;
+  background:#fff !important;
+  border:1px solid var(--sess-line) !important;
+  border-radius:10px !important;
+  box-shadow:none !important;
+}
+#tab-sessions > .widget > .widget-header{
+  margin:0 !important;
+  padding:12px 14px !important;
+  background:#fff !important;
+  border-bottom:1px solid var(--sess-line) !important;
+}
+#tab-sessions > .widget:nth-of-type(1) > .widget-header{border-left:3px solid var(--sess-blue) !important;}
+#tab-sessions > .widget:nth-of-type(2) > .widget-header{border-left:3px solid var(--sess-green) !important;}
+#tab-sessions > .widget:nth-of-type(3) > .widget-header{border-left:3px solid var(--sess-amber) !important;}
+#tab-sessions > .widget .widget-title{color:var(--sess-text) !important;font-size:.9rem !important;font-weight:700 !important;}
+#tab-sessions > .widget .widget-title::before{display:none !important;}
+#tab-sessions .badge{border-radius:6px !important;box-shadow:none !important;font-weight:700 !important;}
+#tab-sessions .badge-green,
+#sessions-body .status-active{background:#ecfdf5 !important;color:#047857 !important;border:1px solid #d1fae5 !important;}
+#tab-sessions .badge-blue,
+#sessions-body .status-paused{background:#eff6ff !important;color:#1d4ed8 !important;border:1px solid #dbeafe !important;}
+#tab-sessions .badge-gray,
+#sessions-body .status-idle,
+#sessions-body .status-expired{background:#f8fafc !important;color:#64748b !important;border:1px solid #e2e8f0 !important;}
+#tab-sessions #clear-expired-sessions-btn{background:#fff !important;color:var(--sess-red) !important;border-color:#fecdd3 !important;box-shadow:none !important;}
+#tab-sessions #forget-stale-devices-btn{background:#fff !important;color:var(--sess-amber) !important;border-color:#fde68a !important;box-shadow:none !important;}
+#tab-sessions > .widget:nth-of-type(1) button[onclick="loadSessions()"]{background:#fff !important;color:var(--sess-blue) !important;border-color:#bfdbfe !important;box-shadow:none !important;}
+#tab-sessions > .widget:nth-of-type(2) button[onclick="loadSessions()"]{background:#fff !important;color:var(--sess-green) !important;border-color:#a7f3d0 !important;box-shadow:none !important;}
+#tab-sessions > .widget:nth-of-type(3) button[onclick="loadDevices()"]{background:#fff !important;color:var(--sess-amber) !important;border-color:#fde68a !important;box-shadow:none !important;}
+#tab-sessions > .widget > .table-wrap{margin:12px !important;border:1px solid var(--sess-line) !important;border-radius:8px !important;background:#fff !important;}
+#tab-sessions .table th{background:#f8fafc !important;color:#64748b !important;border-bottom:1px solid var(--sess-line) !important;font-size:.68rem !important;letter-spacing:.04em !important;}
+#tab-sessions .table td{border-bottom:1px solid #f1f5f9 !important;}
+#tab-sessions .table tbody tr:hover td{background:#fafcff !important;}
+#sessions-body td:nth-child(1),
+#members-body td:nth-child(1),
+#devices-body td:nth-child(1){color:#334155 !important;font-weight:700 !important;}
+#sessions-body td:nth-child(2){color:#047857 !important;font-weight:700 !important;}
+#sessions-body td:nth-child(3){color:#2563eb !important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600 !important;}
+#members-body td:nth-child(2),
+#devices-body td:nth-child(2){color:#64748b !important;}
+#members-body td:nth-child(3){color:#047857 !important;font-weight:700 !important;}
+#devices-body td:nth-child(3){color:#2563eb !important;font-weight:700 !important;}
+#sessions-body td:nth-child(4),
+#members-body td:nth-child(4),
+#devices-body td:nth-child(4){font-weight:700 !important;}
+#sessions-body .action-btn,
+#members-body .action-btn,
+#devices-body .action-btn{
+  border-radius:6px !important;
+  background:#fff !important;
+  color:#2563eb !important;
+  border-color:#bfdbfe !important;
+  font-weight:700 !important;
+}
+#members-body .action-btn{color:#047857 !important;border-color:#a7f3d0 !important;}
+#devices-body .action-btn{color:#b7791f !important;border-color:#fde68a !important;}
+#sessions-body .action-btn.danger,
+#members-body .action-btn.danger,
+#devices-body .action-btn.danger{color:var(--sess-red) !important;border-color:#fecdd3 !important;background:#fff !important;}
+
+/* Voucher Console: same tester treatment, mapped to the current .widget/.widget-header structure. */
+#tab-vouchers{
+  --v-blue:#2563eb;
+  --v-green:#059669;
+  --v-orange:#d97706;
+  --v-red:#dc2626;
+  --v-ink:#0f172a;
+}
+#tab-vouchers > .widget:first-of-type{
+  padding:0 !important;
+  overflow:hidden;
+  border:1px solid #dce6f4 !important;
+  border-radius:18px !important;
+  background:#fff !important;
+  box-shadow:0 14px 34px rgba(15,23,42,.075) !important;
+}
+#tab-vouchers > .widget:first-of-type > .widget-header{
+  position:relative;
+  overflow:hidden;
+  margin:0 !important;
+  padding:15px 16px !important;
+  border-bottom:0 !important;
+  background:linear-gradient(125deg,#0f172a 0%,#1e3a8a 48%,#2563eb 100%) !important;
+}
+#tab-vouchers > .widget:first-of-type > .widget-header::after{
+  content:"";
+  position:absolute;
+  width:160px;
+  height:160px;
+  right:-58px;
+  top:-92px;
+  border-radius:50%;
+  background:rgba(255,255,255,.08);
+  pointer-events:none;
+}
+#tab-vouchers > .widget:first-of-type > .widget-header > h3{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:#fff !important;
+  font-size:.94rem !important;
+  font-weight:850 !important;
+}
+#tab-vouchers > .widget:first-of-type > .widget-header > h3::before{
+  content:"V";
+  display:grid;
+  place-items:center;
+  width:32px;
+  height:32px;
+  border-radius:10px;
+  background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.16);
+  color:#bfdbfe;
+  font-size:.75rem;
+  font-weight:950;
+}
+#tab-vouchers > .widget:first-of-type > .widget-header > div{position:relative;z-index:1;}
+#tab-vouchers #print-vouchers-btn,
+#tab-vouchers #btn-delete-selected,
+#tab-vouchers #btn-delete-used,
+#tab-vouchers #btn-gen-vouchers{
+  border-radius:9px !important;
+  padding:7px 11px !important;
+  font-size:.72rem !important;
+  font-weight:800 !important;
+  border-width:1px !important;
+  box-shadow:none !important;
+}
+#tab-vouchers #print-vouchers-btn{color:#dbeafe !important;background:rgba(37,99,235,.20) !important;border-color:rgba(147,197,253,.28) !important;}
+#tab-vouchers #btn-delete-selected{color:#fee2e2 !important;background:rgba(220,38,38,.20) !important;border-color:rgba(252,165,165,.26) !important;}
+#tab-vouchers #btn-delete-used{color:#fef3c7 !important;background:rgba(217,119,6,.20) !important;border-color:rgba(253,186,116,.28) !important;}
+#tab-vouchers #btn-gen-vouchers{color:#fff !important;background:linear-gradient(135deg,#059669,#10b981) !important;border-color:#059669 !important;box-shadow:0 7px 16px rgba(5,150,105,.20) !important;}
+#tab-vouchers .voucher-gen-panel{
+  margin:14px 14px 12px !important;
+  padding:14px !important;
+  border:1px solid #dbe7ff !important;
+  border-radius:15px !important;
+  background:linear-gradient(180deg,#f8fbff 0%,#f4f7ff 100%) !important;
+  box-shadow:inset 0 1px 0 #fff,0 8px 20px rgba(37,99,235,.055) !important;
+}
+#tab-vouchers .voucher-gen-panel::before{
+  content:"CREATE VOUCHER BATCH";
+  display:block;
+  margin:0 0 12px;
+  padding:0 0 9px;
+  border-bottom:1px solid #e2e8f0;
+  color:#1d4ed8;
+  font-size:.66rem;
+  font-weight:900;
+  letter-spacing:.10em;
+}
+#tab-vouchers .voucher-gen-grid{gap:10px !important;}
+#tab-vouchers .voucher-gen-grid .form-row{padding:10px !important;border:1px solid #e5eaf2;border-radius:11px;background:#fff;box-shadow:0 3px 10px rgba(15,23,42,.025);}
+#tab-vouchers .voucher-gen-grid label{color:#64748b !important;font-size:.66rem !important;font-weight:800 !important;text-transform:uppercase;letter-spacing:.055em;}
+#tab-vouchers .voucher-gen-grid .input{height:37px;border-radius:9px !important;background:#f8fafc !important;border-color:#dfe6ef !important;color:#0f172a !important;font-weight:700;box-shadow:none !important;}
+#tab-vouchers .voucher-gen-grid .input:focus{background:#fff !important;border-color:#60a5fa !important;box-shadow:0 0 0 3px rgba(59,130,246,.10) !important;}
+#tab-vouchers #voucher-gen-submit{background:linear-gradient(135deg,#2563eb,#3b82f6) !important;border-color:#2563eb !important;color:#fff !important;border-radius:10px !important;}
+#tab-vouchers #voucher-gen-cancel{background:#fff !important;border-color:#cbd5e1 !important;color:#475569 !important;border-radius:10px !important;}
+#tab-vouchers #voucher-select-bar{margin:0 14px 10px !important;padding:9px 11px !important;border:1px solid #e2e8f0 !important;border-radius:10px;background:#f8fafc;}
+#tab-vouchers #voucher-select-bar label{color:#475569 !important;font-weight:700;}
+#tab-vouchers #voucher-select-all,
+#tab-vouchers .v-sel-cb{accent-color:#2563eb;}
+#tab-vouchers .voucher-grid{margin:0 14px 14px !important;border:1px solid #e1e8f2 !important;border-radius:14px !important;background:#fff !important;box-shadow:0 6px 18px rgba(15,23,42,.04);}
+#tab-vouchers .voucher-table{font-size:.78rem !important;}
+#tab-vouchers .voucher-table th{padding:10px 11px !important;color:#dbeafe !important;background:linear-gradient(180deg,#1e3a8a,#1e40af) !important;border-bottom:0 !important;font-size:.63rem !important;font-weight:850 !important;letter-spacing:.065em !important;}
+#tab-vouchers .voucher-table td{padding:10px 11px !important;border-bottom:1px solid #edf1f6 !important;color:#334155 !important;background:#fff;}
+#tab-vouchers .voucher-table tbody tr:nth-child(even) td{background:#fbfdff;}
+#tab-vouchers .voucher-table tbody tr:hover td{background:#eff6ff !important;}
+#tab-vouchers .voucher-table tr.selected-row td{background:#eaf2ff !important;}
+#tab-vouchers .voucher-table tr.used-row td{opacity:.62;background:#f8fafc !important;}
+#tab-vouchers .v-code-cell{color:#1d4ed8 !important;font-size:.84rem !important;font-weight:900 !important;letter-spacing:.08em !important;background:transparent !important;}
+#tab-vouchers .voucher-table td:nth-child(4){color:#047857 !important;font-weight:850;}
+#tab-vouchers .voucher-table .action-btn{border-radius:8px !important;background:#fff !important;border-color:#dbe3ee !important;font-weight:750;}
+#tab-vouchers .voucher-table .action-btn.danger{color:#dc2626 !important;border-color:#fecaca !important;background:#fff7f7 !important;}
+
+@media(max-width:720px){
+  #tab-vouchers > .widget:first-of-type > .widget-header{align-items:flex-start !important;flex-direction:column;padding:13px !important;}
+  #tab-vouchers > .widget:first-of-type > .widget-header > div{width:100%;display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px !important;}
+  #tab-vouchers > .widget:first-of-type > .widget-header > div .btn{width:100%;min-width:0;}
+  #tab-vouchers .voucher-gen-panel{margin:11px !important;padding:11px !important;}
+  #tab-vouchers .voucher-gen-grid{grid-template-columns:1fr !important;}
+  #tab-vouchers #voucher-select-bar{margin:0 11px 9px !important;}
+  #tab-vouchers .voucher-grid{margin:0 11px 11px !important;}
+  #tab-rates .rate-tier-panel-header{align-items:flex-start;flex-wrap:wrap;gap:8px;padding:14px;}
+  #tab-rates .rate-tier-panel-header .btn-sm{margin-left:auto;font-size:.68rem;padding:6px 10px;}
+  #tab-rates .rate-tier-list{gap:10px;padding:12px;}
+  #tab-rates .rate-tier-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end;gap:8px;padding:12px;}
+  #tab-rates .rate-tier-field{width:auto;flex:none;}
+  #tab-rates .rate-tier-field label{font-size:.60rem;line-height:1.15;letter-spacing:.03em;}
+  #tab-rates .rate-tier-field input,
+  #tab-rates .rate-tier-field select{min-width:0;height:36px;padding:6px 8px;font-size:12px;border-radius:8px;}
+  #tab-rates .rate-tier-sep{display:none;}
+  #tab-rates .rate-tier-badge{grid-column:1 / -1;width:100%;min-width:0;height:auto;min-height:34px;justify-content:flex-start;white-space:normal;overflow-wrap:anywhere;line-height:1.25;padding:8px 10px;font-size:10px;border-radius:10px;}
+  #tab-rates .rate-tier-del{grid-column:2;justify-self:end;width:30px;height:30px;margin:0;}
+  #tab-rates .rate-tier-empty{margin:12px;gap:8px;padding:12px;font-size:.72rem;}
+  #tab-settings > .form-card{padding:13px !important;border-radius:14px !important;}
+  #tab-settings > .form-card .form-title{font-size:.82rem !important;}
+  #tab-settings > .form-card .form-title::before{width:27px;height:27px;flex-basis:27px;border-radius:8px;}
+  #tab-settings > .form-card .form-row{padding:9px;margin-bottom:8px;}
+  #tab-settings .portal-toggle-grid{grid-template-columns:1fr !important;}
+  #tab-settings #save-settings-btn{min-height:44px;}
+  #tab-sessions > .widget > .widget-header{align-items:flex-start !important;gap:8px !important;flex-wrap:wrap !important;}
+  #tab-sessions > .widget > .widget-header > div:last-child{width:100%;}
+  #tab-sessions > .widget > .table-wrap{margin:9px !important;}
+}
+
+@media print{
+  #tab-vouchers > .widget:first-of-type{border:0 !important;box-shadow:none !important;padding:0 !important;}
+  #tab-vouchers .voucher-grid{margin:0 !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;}
+  #tab-vouchers .voucher-table th{background:#f0f0f0 !important;color:#000 !important;border-bottom:1px solid #ccc !important;}
+  #tab-vouchers .voucher-table td{background:#fff !important;color:#000 !important;border-color:#ccc !important;opacity:1 !important;}
+  #tab-vouchers .v-code-cell{color:#000 !important;}
+}
+
+/* Gaming Priority is intentionally deferred until its backend/firewall contract is defined. */
+</style>
+</head>
+<style id="gaming-priority-simple-style">
+/* Gaming Priority â€” simple dashboard-integrated UI (frontend/local only) */
+#tab-gaming-priority .gp-note{
+  margin-bottom:14px;padding:10px 12px;border:1px solid #dbe5f1;border-radius:9px;
+  background:#f8fafc;color:#64748b;font-size:.76rem;line-height:1.45;
+}
+#tab-gaming-priority .gp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;}
+#tab-gaming-priority .gp-stat{background:#fff;border:1px solid #e5eaf2;border-radius:10px;padding:13px 14px;}
+#tab-gaming-priority .gp-stat-label{display:block;font-size:.64rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;}
+#tab-gaming-priority .gp-stat-value{display:block;font-size:1.25rem;font-weight:800;color:#1e293b;}
+#tab-gaming-priority .gp-stat:nth-child(1){border-top:3px solid #2563eb;}
+#tab-gaming-priority .gp-stat:nth-child(2){border-top:3px solid #16a34a;}
+#tab-gaming-priority .gp-stat:nth-child(3){border-top:3px solid #d97706;}
+#tab-gaming-priority .gp-card{background:#fff;border:1px solid #e5eaf2;border-radius:11px;padding:15px;margin-bottom:14px;}
+#tab-gaming-priority .gp-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:11px;margin-bottom:13px;border-bottom:1px solid #edf1f6;}
+#tab-gaming-priority .gp-card-title{font-size:.9rem;font-weight:800;color:#172033;}
+#tab-gaming-priority .gp-card-sub{font-size:.69rem;color:#94a3b8;margin-top:2px;line-height:1.4;}
+#tab-gaming-priority .gp-switch-wrap{display:flex;align-items:center;gap:8px;font-size:.72rem;font-weight:700;color:#475569;white-space:nowrap;}
+#tab-gaming-priority .gp-switch{position:relative;width:40px;height:22px;display:inline-flex;}
+#tab-gaming-priority .gp-switch input{position:absolute;opacity:0;width:1px;height:1px;}
+#tab-gaming-priority .gp-slider{position:absolute;inset:0;background:#cbd5e1;border-radius:999px;cursor:pointer;transition:.15s;}
+#tab-gaming-priority .gp-slider:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 3px rgba(15,23,42,.18);}
+#tab-gaming-priority .gp-switch input:checked + .gp-slider{background:#16a34a;}
+#tab-gaming-priority .gp-switch input:checked + .gp-slider:before{transform:translateX(18px);}
+#tab-gaming-priority .gp-form-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:9px;align-items:end;}
+#tab-gaming-priority .gp-field{min-width:0;}
+#tab-gaming-priority .gp-field label{display:block;font-size:.66rem;font-weight:700;color:#64748b;margin-bottom:5px;}
+#tab-gaming-priority .gp-field input,#tab-gaming-priority .gp-field select{display:block;width:100%;height:36px;padding:7px 9px;border:1px solid #dfe5ee;border-radius:8px;background:#fff;color:#1e293b;font-size:.8rem;outline:none;}
+#tab-gaming-priority .gp-field input:focus,#tab-gaming-priority .gp-field select:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(59,130,246,.08);}
+#tab-gaming-priority .gp-add-btn{height:36px;background:#2563eb!important;border-color:#2563eb!important;color:#fff!important;white-space:nowrap;}
+#tab-gaming-priority .gp-table-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+#tab-gaming-priority .gp-save-btn{background:#fff!important;color:#2563eb!important;border:1px solid #bfdbfe!important;}
+#tab-gaming-priority .gp-table-wrap{overflow-x:auto;border:1px solid #e5eaf2;border-radius:9px;}
+#tab-gaming-priority .gp-table{width:100%;border-collapse:collapse;min-width:700px;font-size:.76rem;}
+#tab-gaming-priority .gp-table th{padding:9px 10px;background:#f8fafc;color:#64748b;text-align:left;font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e5eaf2;}
+#tab-gaming-priority .gp-table td{padding:9px 10px;border-bottom:1px solid #edf1f6;color:#334155;vertical-align:middle;}
+#tab-gaming-priority .gp-table tr:last-child td{border-bottom:0;}
+#tab-gaming-priority .gp-badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;font-size:.63rem;font-weight:800;border:1px solid transparent;}
+#tab-gaming-priority .gp-proto{background:#eff6ff;color:#1d4ed8;border-color:#dbeafe;}
+#tab-gaming-priority .gp-high{background:#ecfdf5;color:#15803d;border-color:#d1fae5;}
+#tab-gaming-priority .gp-medium{background:#fff7ed;color:#c2410c;border-color:#fed7aa;}
+#tab-gaming-priority .gp-low{background:#f1f5f9;color:#475569;border-color:#e2e8f0;}
+#tab-gaming-priority .gp-actions{display:flex;gap:5px;flex-wrap:wrap;}
+#tab-gaming-priority .gp-action{padding:5px 8px;border-radius:6px;border:1px solid #dfe5ee;background:#fff;color:#475569;font-size:.68rem;font-weight:700;cursor:pointer;}
+#tab-gaming-priority .gp-action:hover{border-color:#93c5fd;color:#1d4ed8;}
+#tab-gaming-priority .gp-action.gp-delete{border-color:#fecaca;color:#dc2626;background:#fffafa;}
+#tab-gaming-priority .gp-empty{padding:18px;text-align:center;color:#94a3b8;font-size:.75rem;}
+#tab-gaming-priority .gp-toast{display:none;margin-top:10px;padding:8px 10px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;font-size:.72rem;font-weight:700;}
+#tab-gaming-priority .gp-toast.show{display:block;}
+.nav-item[data-tab="gaming-priority"] .nav-icon{color:#93c5fd!important;}
+.nav-item[data-tab="gaming-priority"].active .nav-icon{color:#fff!important;}
+@media(max-width:900px){#tab-gaming-priority .gp-form-grid{grid-template-columns:repeat(2,minmax(0,1fr));}#tab-gaming-priority .gp-add-btn{width:100%;}}
+@media(max-width:600px){#tab-gaming-priority .gp-stats{grid-template-columns:1fr;}#tab-gaming-priority .gp-card-head,#tab-gaming-priority .gp-table-head{align-items:flex-start;flex-wrap:wrap;}#tab-gaming-priority .gp-form-grid{grid-template-columns:1fr;}#tab-gaming-priority .gp-field input,#tab-gaming-priority .gp-field select{font-size:16px;height:40px;}}
+</style>
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <img id="admin-login-logo" src="/kemofi-logo.webp" alt="KemoFi LiteV2" class="login-logo" onerror="this.style.display='none'">
+    <h1 id="login-title">KemoFi LiteV2 Admin</h1>
+    <form id="login-form" autocomplete="off">
+      <div class="pw-wrap">
+        <input type="password" id="login-password" class="input" placeholder="Admin Password" required>
+        <button type="button" class="pw-toggle" id="pw-toggle-btn" tabindex="-1" aria-label="Show password">
+          <svg id="pw-eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Login</button>
+      <p id="login-error" class="error-text" style="display:none"></p>
+    </form>
+    <div class="login-footer">
+      <button id="forgot-password-btn" type="button" class="link-btn">Forgot Password?</button>
+    </div>
+  </div>
+</div>
+
+<!-- Forgot Password Modal -->
+<div id="forgot-modal" class="modal" aria-hidden="true">
+  <div data-close class="modal-backdrop"></div>
+  <div class="modal-card">
+    <button class="modal-close" id="close-forgot">&times;</button>
+    <h3>Reset Password</h3>
+    <p class="modal-desc">Enter your board license key to reset the admin password.</p>
+    <input type="text" id="forgot-license-input" placeholder="License Key" class="input">
+    <input type="password" id="forgot-new-password" placeholder="New Password" class="input">
+    <p id="forgot-error" class="error-text" style="display:none"></p>
+    <button id="forgot-submit" type="button" class="btn btn-primary">Reset Password</button>
+  </div>
+</div>
+
+<!-- Main App (hidden until login) -->
+<div id="app" style="display:none">
+  <div class="app-shell">
+    <!-- Sidebar Backdrop (mobile) -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="sidebar-head">
+        <img id="admin-sidebar-logo" src="/kemofi-logo.webp" alt="" class="brand-logo" onerror="this.style.display='none'">
+        <div class="brand-copy">
+          <span class="brand-name" id="admin-business-name">KemoFi LiteV2</span>
+          <span class="brand-hint">Admin Panel</span>
+        </div>
+        <button class="sidebar-collapse" id="sidebar-collapse-btn" title="Collapse sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+      </div>
+
+      <nav class="admin-nav">
+        <span class="nav-section-label">Main</span>
+        <button class="nav-item active" data-tab="dashboard">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Dashboard</span>
+            <span class="nav-hint">Overview & stats</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="sessions">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0111 0"/><path d="M16 5.5a3 3 0 010 5.8M17 14.5a5.5 5.5 0 013.5 5"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Sessions</span>
+            <span class="nav-hint">Active users & devices</span>
+          </span>
+        </button>
+<button class="nav-item" data-tab="gaming-priority" id="gaming-priority-nav">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 8.5h7a5.5 5.5 0 015.2 7.3l-.7 2a2.5 2.5 0 01-4.4.6l-1.2-1.7H9.6l-1.2 1.7a2.5 2.5 0 01-4.4-.6l-.7-2a5.5 5.5 0 015.2-7.3z"/><path d="M7 12v4M5 14h4M16.5 12.5h.01M18.5 14.5h.01"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Gaming Priority</span>
+            <span class="nav-hint">Game ports &amp; priority</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="vouchers">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v4a2 2 0 000 4v4H4v-4a2 2 0 000-4V6z"/><path d="M12 6v12" stroke-dasharray="2 3"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Vouchers</span>
+            <span class="nav-hint">Generate & manage</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.1h-2.6V20a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1-1.8-1.8.1-.1A1.7 1.7 0 008 15a1.7 1.7 0 00-1.6-1H6v-2.6h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.6V5h2.6v.1a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1h.1V14h-.1a1.7 1.7 0 00-1.6 1z"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Settings</span>
+            <span class="nav-hint">Portal configuration</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="wan">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9h16M7 5h10M7 13h10M4 17h16"/><circle cx="8" cy="9" r="1"/><circle cx="16" cy="13" r="1"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Internet / WAN</span>
+            <span class="nav-hint">DHCP or static IPv4</span>
+          </span>
+        </button>
+        <span class="nav-section-label">Configuration</span>
+        <button class="nav-item" data-tab="license">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7.5" cy="15.5" r="3.5"/><path d="M10 13l8-8 3 3-8 8M16 7l2 2M18 5l1-1"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">License</span>
+            <span class="nav-hint">Activation &amp; status</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="rates">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16"/><path d="M8 16v-4M12 16V8M16 16V5"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">WiFi Rates</span>
+            <span class="nav-hint">Pricing &amp; time</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="branding">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-2 3-2-3H5a2 2 0 01-2-2V7a2 2 0 012-2z"/><path d="M8 10h.01M12 10h.01M16 10h.01" stroke-width="2.6"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Branding</span>
+            <span class="nav-hint">Portal look &amp; sound</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="vendos">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Coinslot</span>
+            <span class="nav-hint">Coin machines</span>
+          </span>
+        </button>
+        <button class="nav-item" id="remote-nav" data-tab="remote" hidden>
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Remote Access</span>
+            <span class="nav-hint">Secure management tunnel</span>
+          </span>
+        </button>
+        <button class="nav-item" data-tab="system">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">System</span>
+            <span class="nav-hint">Info, password, reboot</span>
+          </span>
+        </button>
+
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="nav-item nav-danger" id="logout-btn">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3M21 4v16"/></svg>
+          </span>
+          <span class="nav-copy">
+            <span class="nav-label">Logout</span>
+            <span class="nav-hint">End session</span>
+          </span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content" id="main-content">
+
+      <!-- Mobile Header -->
+      <div class="mobile-header">
+        <button class="mobile-menu-btn" id="mobile-menu-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <img id="admin-mobile-logo" src="/kemofi-logo.webp" alt="" class="mobile-header-logo" onerror="this.style.display='none'">
+        <span class="mobile-header-title" id="mobile-business-name">KemoFi LiteV2</span>
+      </div>
+
+      <!-- Page Header (dynamic) -->
+      <div class="page-header" id="page-header">
+        <div class="page-header-left">
+          <span class="page-kicker" id="page-kicker">Overview</span>
+          <span class="page-title" id="page-title">Dashboard</span>
+        </div>
+        <div class="page-header-actions" id="page-header-actions"></div>
+      </div>
+
+      <!-- Trial Mode Banner -->
+      <div id="trial-banner" style="display:none;background:linear-gradient(90deg,#92400e,#78350f);border:1px solid #d97706;border-radius:10px;padding:14px 20px;margin:0 20px 16px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:1.3rem;">&#9888;&#65039;</span>
+          <div>
+            <strong style="color:#fbbf24;font-size:.9rem;">TRIAL MODE</strong>
+            <p style="color:#fde68a;font-size:.78rem;margin:2px 0 0;">Activate a license key to remove this restriction.</p>
+          </div>
+        </div>
+        <span id="trial-countdown" style="font-family:monospace;font-size:.9rem;font-weight:700;color:#fbbf24;">--</span>
+      </div>
+
+      <div class="content-area">
+
+        <!-- Dashboard Tab -->
+        <section id="tab-dashboard" class="tab-content active">
+          <div class="stats-grid premium-sales-grid">
+            <div class="stat-card premium-stat users-card">
+              <div class="stat-topline"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0111 0M17 11a3 3 0 000-6M18 14a5 5 0 013 4.5"/></svg></span><span class="stat-chip">LIVE</span></div>
+              <span class="stat-label">Active Users</span>
+              <span class="stat-value" id="stat-active">0</span>
+              <span class="stat-foot">Connected right now</span>
+            </div>
+            <div class="stat-card premium-stat today-card">
+              <div class="stat-topline"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v20M17 6.5c0-1.4-1.8-2.5-4-2.5s-4 1.1-4 2.5 1.8 2.5 4 2.5 4 1.1 4 2.5-1.8 2.5-4 2.5-4 1.1-4 2.5 1.8 2.5 4 2.5 4 1.1 4 2.5-1.8 2.5-4 2.5-4 1.1-4 2.5"/></svg></span><span class="stat-chip">TODAY</span></div>
+              <span class="stat-label">Today's Earnings</span>
+              <span class="stat-value" id="stat-today-earnings">&#8369;0</span>
+              <span class="stat-foot">Daily sales total</span>
+            </div>
+            <div class="stat-card premium-stat total-card">
+              <div class="stat-topline"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span><span class="stat-chip">ALL TIME</span></div>
+              <span class="stat-label">Total Earnings</span>
+              <span class="stat-value" id="stat-total-earnings">&#8369;0</span>
+              <span class="stat-foot">Lifetime revenue</span>
+            </div>
+            <div class="stat-card premium-stat tx-card">
+              <div class="stat-topline"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 7h11l-3-3M17 17H6l3 3M18 7l-3 3M6 17l3-3"/></svg></span><span class="stat-chip">COUNT</span></div>
+              <span class="stat-label">Transactions</span>
+              <span class="stat-value" id="stat-transactions">0</span>
+              <span class="stat-foot">Completed sessions</span>
+            </div>
+          </div>
+          <div class="widget board-health-card">
+            <div class="widget-header health-header">
+              <div class="health-title-wrap">
+                <span class="health-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 13h3l2-6 4 12 2-6h5"/></svg></span>
+                <div><h3 class="widget-title" style="margin:0;border:none;padding:0">System Board</h3><span class="health-subtitle">Realtime system status</span></div>
+              </div>
+              <span class="health-status-pill"><span></span> ONLINE</span>
+            </div>
+            <div class="health-grid premium-health-grid">
+              <div class="health-item"><span class="health-mini-icon">UP</span><span class="health-label">Uptime</span><span class="health-value" id="health-uptime">--</span></div>
+              <div class="health-item"><span class="health-mini-icon">RAM</span><span class="health-label">Memory</span><span class="health-value" id="health-ram">--</span><span class="health-detail" id="health-ram-detail">-- available</span></div>
+              <div class="health-item"><span class="health-mini-icon">CPU</span><span class="health-label">CPU Load</span><span class="health-value" id="health-cpu">--</span></div>
+              <div class="health-item"><span class="health-mini-icon">WF</span><span class="health-label">WiFi Clients</span><span class="health-value" id="health-wifi">--</span></div>
+              <div class="health-item wan-health"><span class="health-mini-icon">WAN</span><span class="health-label">WAN Status</span><span class="health-value" id="health-wan">--</span></div>
+            </div>
+          </div>
+          <div class="widget dashboard-system-info-card">
+            <div class="widget-header dashboard-system-info-header">
+              <div>
+                <h3 class="widget-title" style="margin:0;border:none;padding:0">System Info</h3>
+                <span class="dashboard-system-info-sub">Router &amp; firmware details</span>
+              </div>
+              <span class="dashboard-system-info-badge">DEVICE</span>
+            </div>
+            <div class="info-grid" id="system-info-grid">
+              <div class="info-item"><span class="info-label">Hostname</span><span class="info-value" id="sys-hostname">--</span></div>
+              <div class="info-item"><span class="info-label">Model</span><span class="info-value" id="sys-model">--</span></div>
+              <div class="info-item"><span class="info-label">Uptime</span><span class="info-value" id="sys-uptime">--</span></div>
+              <div class="info-item"><span class="info-label">RAM Used</span><span class="info-value" id="sys-ram">--</span></div>
+              <div class="info-item"><span class="info-label">LAN IP</span><span class="info-value" id="sys-lan-ip">--</span></div>
+              <div class="info-item"><span class="info-label">WAN IP</span><span class="info-value" id="sys-wan-ip">--</span></div>
+            </div>
+          </div>
+          <div class="widget">
+            <div class="widget-header">
+              <h3 class="widget-title" style="margin:0;border:none;padding:0">Recent Transactions</h3>
+              <button id="reset-earnings-btn" class="btn btn-sm btn-danger-outline" type="button">Reset Earnings</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table" id="recent-tx-table">
+                <thead><tr><th>Time</th><th>MAC</th><th>Amount</th><th>Duration</th><th>Coins</th><th>Source</th></tr></thead>
+                <tbody id="recent-tx-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sessions Tab -->
+        <section id="tab-sessions" class="tab-content">
+          <div class="widget">
+            <div class="widget-header">
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                <h3 class="widget-title" style="margin:0 6px 0 0;border:none;padding:0">Sessions</h3>
+                <span class="badge badge-green">Active</span>
+                <span class="badge badge-blue">Paused</span>
+                <span class="badge badge-gray">Idle</span>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button id="clear-expired-sessions-btn" class="btn btn-sm btn-outline" type="button">Clear Expired</button>
+                <button id="forget-stale-devices-btn" class="btn btn-sm btn-outline" type="button">Forget Stale</button>
+                <button class="btn btn-sm btn-outline" onclick="loadSessions()">&#8635; Refresh</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Name/MAC</th><th>Time Left</th><th>IP</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="sessions-body"><tr><td colspan="5" style="text-align:center;padding:18px;color:var(--text2);font-size:.82rem;">Loading sessions...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="widget">
+            <div class="widget-header">
+              <div>
+                <h3 class="widget-title" style="margin:0;border:none;padding:0">Members</h3>
+                <div style="font-size:.72rem;color:var(--text2);margin-top:3px">Household and staff devices with unlimited access</div>
+              </div>
+              <button class="btn btn-sm btn-outline" onclick="loadSessions()">&#8635; Refresh</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Name/MAC</th><th>Member Since</th><th>Access</th><th>Actions</th></tr></thead>
+                <tbody id="members-body"><tr><td colspan="4" style="text-align:center;padding:18px;color:var(--text2)">Loading members...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="widget">
+            <div class="widget-header">
+              <h3 class="widget-title" style="margin:0;border:none;padding:0">Known Devices</h3>
+              <button class="btn btn-sm btn-outline" onclick="loadDevices()">&#8635; Refresh</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Name/MAC</th><th>Last Seen</th><th>Total Sessions</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="devices-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+<section id="tab-gaming-priority" class="tab-content">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Gaming Priority</h2>
+              <p style="color:var(--text2);font-size:.82rem;margin-top:4px;">Create and manage game port priority rules applied by the router.</p>
+            </div>
+          </div>
+          <div class="gp-stats">
+            <div class="gp-stat"><span class="gp-stat-label">Gaming Rules</span><span class="gp-stat-value" id="gp-rule-count">0</span></div>
+            <div class="gp-stat"><span class="gp-stat-label">High Priority</span><span class="gp-stat-value" id="gp-high-count">0</span></div>
+            <div class="gp-stat"><span class="gp-stat-label">Service</span><span class="gp-stat-value" id="gp-service-status">Enabled</span></div>
+          </div>
+
+          <div class="gp-card">
+            <div class="gp-card-head">
+              <div>
+                <div class="gp-card-title">Gaming Priority Service</div>
+                <div class="gp-card-sub">Mark matching flows for CAKE without changing bandwidth limits.</div>
+              </div>
+              <div class="gp-switch-wrap">
+                <span id="gp-toggle-text">Enabled</span>
+                <label class="gp-switch" aria-label="Gaming Priority Service">
+                  <input type="checkbox" id="gp-toggle" checked>
+                  <span class="gp-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="gp-form-grid">
+              <div class="gp-field"><label>Game / Application</label><input id="gp-game-name" type="text" placeholder="e.g. Mobile Legends"></div>
+              <div class="gp-field"><label>Protocol</label><select id="gp-protocol"><option value="UDP">UDP</option><option value="TCP">TCP</option><option value="TCP/UDP">TCP/UDP</option></select></div>
+              <div class="gp-field"><label>Start Port</label><input id="gp-start-port" type="number" min="1" max="65535" placeholder="30000"></div>
+              <div class="gp-field"><label>End Port</label><input id="gp-end-port" type="number" min="1" max="65535" placeholder="30100"></div>
+              <div class="gp-field"><label>Priority</label><select id="gp-priority"><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></div>
+              <button type="button" class="btn btn-primary btn-sm gp-add-btn" id="gp-add-btn">+ Add Rule</button>
+            </div>
+          </div>
+
+          <div class="gp-card">
+            <div class="gp-table-head">
+              <div>
+                <div class="gp-card-title">Game Port Rules</div>
+                <div class="gp-card-sub">Rules are applied to matching flows; CAKE/SQM must be enabled for queue priority.</div>
+              </div>
+              <button type="button" class="btn btn-sm gp-save-btn" id="gp-save-btn">Save Configuration</button>
+            </div>
+            <div class="gp-table-wrap">
+              <table class="gp-table">
+                <thead><tr><th>Game / Application</th><th>Protocol</th><th>Port Range</th><th>Priority</th><th>Actions</th></tr></thead>
+                <tbody id="gp-rules-body"></tbody>
+              </table>
+              <div class="gp-empty" id="gp-empty">No gaming port rules added yet.</div>
+            </div>
+            <div class="gp-toast" id="gp-toast" role="status" aria-live="polite"></div>
+          </div>
+        </section>
+        <!-- Vouchers Tab -->
+        <section id="tab-vouchers" class="tab-content">
+          <div class="widget">
+            <div class="widget-header">
+              <h3 class="widget-title" style="margin:0;border:none;padding:0">Voucher Console</h3>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="print-vouchers-btn" class="btn btn-sm btn-outline">&#128438; Print</button>
+                <button id="btn-delete-selected" class="btn btn-sm btn-danger" disabled style="opacity:.4;cursor:not-allowed">&#128465; Delete Selected (<span id="selected-count">0</span>)</button>
+                <button id="btn-delete-used" class="btn btn-sm btn-outline">Archive Used</button>
+                <button id="btn-gen-vouchers" class="btn btn-sm btn-primary">+ Generate</button>
+              </div>
+            </div>
+            <!-- Generate Form (hidden by default) -->
+            <div id="voucher-gen-form" class="voucher-gen-panel" style="display:none">
+              <div class="voucher-gen-grid">
+                <div class="form-row" style="margin:0">
+                  <label>Quantity</label>
+                  <input type="number" id="voucher-qty" class="input" value="10" min="1" max="500">
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Duration</label>
+                  <div style="display:flex;gap:6px;">
+                    <input type="number" id="voucher-duration" class="input" value="1" min="1" style="flex:1;min-width:0">
+                    <select id="voucher-duration-unit" class="input" style="width:auto;min-width:90px">
+                      <option value="minutes">Minutes</option>
+                      <option value="hours">Hours</option>
+                      <option value="days" selected>Days</option>
+                      <option value="months">Months</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Validity after redeem</label>
+                  <div style="display:flex;gap:6px;">
+                    <input type="number" id="voucher-validity" class="input" value="30" min="1" style="flex:1;min-width:0">
+                    <select id="voucher-validity-unit" class="input" style="width:auto;min-width:90px">
+                      <option value="hours">Hours</option>
+                      <option value="days" selected>Days</option>
+                      <option value="weeks">Weeks</option>
+                      <option value="months">Months</option>
+                      <option value="never">Never</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Price (&#8369;)</label>
+                  <input type="number" id="voucher-price" class="input" value="5" min="0" step="0.5">
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Label</label>
+                  <input type="text" id="voucher-label" class="input" placeholder="e.g. May 2026">
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Code format</label>
+                  <select id="voucher-code-type" class="input">
+                    <option value="numbers">Numbers only</option>
+                    <option value="letters">Letters only</option>
+                    <option value="mixed" selected>Mixed</option>
+                  </select>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Code length</label>
+                  <input type="number" id="voucher-code-length" class="input" value="8" min="4" max="8">
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px;">
+                <button id="voucher-gen-submit" class="btn btn-primary">Generate</button>
+                <button id="voucher-gen-cancel" class="btn btn-outline">Cancel</button>
+              </div>
+            </div>
+            <!-- Select All toolbar (shown when grid has items) -->
+            <div id="voucher-select-bar" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.82rem;color:var(--text2)">
+                <input type="checkbox" id="voucher-select-all"> Select all unused
+              </label>
+            </div>
+            <!-- Voucher Table (print-friendly) -->
+            <div id="voucher-grid" class="voucher-grid" style="margin-top:8px;">
+              <table class="voucher-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Code</th>
+                    <th>Duration</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Validity</th>
+                    <th>Batch</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="vouchers-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Settings Tab -->
+        <section id="tab-settings" class="tab-content">
+          <div class="form-card">
+            <h3 class="form-title">WiFi Networks</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Set a separate customer WiFi name for each radio.</p>
+            <div class="form-row">
+              <label>2.4 GHz WiFi Name</label>
+              <input type="text" id="wifi-ssid-2g" class="input" maxlength="32" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="form-row">
+              <label>5 GHz WiFi Name</label>
+              <input type="text" id="wifi-ssid-5g" class="input" maxlength="32" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="notice-amber" style="margin-bottom:12px;">Saving will briefly disconnect WiFi devices. Reconnect using the new network name.</div>
+            <div class="form-actions">
+              <button type="button" id="save-wifi-btn" class="btn btn-primary">Save WiFi Names</button>
+              <span id="wifi-save-status" style="font-size:.82rem;color:var(--text2)"></span>
+            </div>
+          </div>
+          <!-- Portal Settings -->
+          <div class="form-card">
+            <h3 class="form-title">Portal Settings</h3>
+            <div class="form-row"><label>PisoWiFi / Business Name</label><input type="text" id="set-business-name" class="input" maxlength="64" placeholder="KemoFi" autocomplete="organization"></div>
+            <div class="form-row"><label>Portal Subtitle</label><input type="text" id="set-portal-name" class="input" maxlength="80" placeholder="Welcome and Enjoy!"></div>
+            <div class="form-row"><label>Portal Footer Text</label><input type="text" id="set-portal-footer-text" class="input" maxlength="120" placeholder=""></div>
+            <div class="form-row"><label>Footer Redirect URL</label><input type="url" id="set-portal-footer-link" class="input" maxlength="240" placeholder="https://example.com/" inputmode="url" autocomplete="url"><small>Clicking the footer text opens this URL.</small></div>
+            <div class="portal-toggle-grid" aria-label="Portal button visibility">
+              <label class="portal-toggle-card">
+                <span class="portal-toggle-copy"><strong>Show Rates</strong><small>Let customers view WiFi rates.</small></span>
+                <span class="toggle-switch"><input type="checkbox" id="set-show-rates" aria-label="Show Rates Button"><span class="toggle-slider"></span></span>
+              </label>
+              <label class="portal-toggle-card">
+                <span class="portal-toggle-copy"><strong>Show Voucher</strong><small>Allow voucher redemption.</small></span>
+                <span class="toggle-switch"><input type="checkbox" id="set-show-voucher" aria-label="Show Voucher Button"><span class="toggle-slider"></span></span>
+              </label>
+              <label class="portal-toggle-card">
+                <span class="portal-toggle-copy"><strong>Show Insert Coin</strong><small>Allow coinslot time credits.</small></span>
+                <span class="toggle-switch"><input type="checkbox" id="set-show-coin" aria-label="Show Insert Coin Button"><span class="toggle-slider"></span></span>
+              </label>
+            </div>
+            <div class="form-row"><label>Hide Device Info</label><select id="set-hide-device-info" class="input"><option value="0">No (show IP/MAC)</option><option value="1">Yes (hide)</option></select></div>
+          </div>
+          <!-- Router bandwidth policy -->
+          <div class="form-card">
+            <h3 class="form-title">Router Bandwidth Policy</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Choose one limit for each customer device or one shared limit for the whole router. The lightweight policy drops excess packets; SQM provides smoother line shaping where available.</p>
+            <div class="form-row">
+              <label>Bandwidth policy</label>
+              <select id="bw-device-enabled" class="input" onchange="_bwSelect(this.value)">
+                <option value="off">Disabled</option>
+                <option value="per_client">Per-device limit</option>
+                <option value="shared">Shared router limit</option>
+              </select>
+            </div>
+            <div id="bw-per-client" style="display:none;margin-top:14px;">
+              <div class="bw-grid-2">
+                <div class="form-row" style="margin:0">
+                  <label>Download limit per device (kbps)</label>
+                  <input type="number" id="bw-per-client-down" class="input" min="0" placeholder="e.g. 5120 = 5 Mbps">
+                  <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">0 = unlimited. 1024 kbps = 1 Mbps.</p>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Upload limit per device (kbps)</label>
+                  <input type="number" id="bw-per-client-up" class="input" min="0" placeholder="e.g. 1024 = 1 Mbps">
+                  <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">0 = unlimited.</p>
+                </div>
+              </div>
+              <div class="notice-amber" style="margin-top:10px;">Each active customer device receives its own limit. Changes apply to active and future customer sessions.</div>
+            </div>
+            <div id="bw-shared" style="display:none;margin-top:14px;">
+              <div class="bw-grid-2">
+                <div class="form-row" style="margin:0">
+                  <label>Total download limit (kbps)</label>
+                  <input type="number" id="bw-shared-down" class="input" min="0" placeholder="e.g. 10240 = 10 Mbps">
+                  <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">0 = unlimited. The limit is shared by all customer devices.</p>
+                </div>
+                <div class="form-row" style="margin:0">
+                  <label>Total upload limit (kbps)</label>
+                  <input type="number" id="bw-shared-up" class="input" min="0" placeholder="e.g. 2048 = 2 Mbps">
+                  <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">0 = unlimited.</p>
+                </div>
+              </div>
+            </div>
+            <div class="form-row" style="margin-top:14px;">
+              <label>Exempt device MAC addresses</label>
+              <input type="text" id="bw-exempt-macs" class="input" placeholder="e.g. aa:bb:cc:dd:ee:ff, 56:f5:db:ff:c8:42">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Comma-separated devices that should bypass this bandwidth policy.</p>
+            </div>
+          </div>
+          <!-- Smart Queue Management -->
+          <div class="form-card" id="sqm-settings-card">
+            <h3 class="form-title">SQM Smart Queue</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Use CAKE queue management to control bufferbloat and keep browsing, calls, and games responsive while the line is busy.</p>
+            <div class="form-row">
+              <label>Smart Queue</label>
+              <select id="set-sqm-enabled" class="input"><option value="0">Disabled</option><option value="1" selected>Enabled</option></select>
+            </div>
+            <div class="bw-grid-2">
+              <div class="form-row" style="margin:0">
+                <label>Download rate (kbps)</label>
+                <input type="number" id="sqm-download" class="input" min="1" max="10000000" value="10240" placeholder="Measured download × 90–95%">
+              </div>
+              <div class="form-row" style="margin:0">
+                <label>Upload rate (kbps)</label>
+                <input type="number" id="sqm-upload" class="input" min="1" max="10000000" value="10240" placeholder="Measured upload × 90–95%">
+              </div>
+            </div>
+            <div class="bw-grid-2" style="margin-top:12px;">
+              <div class="form-row" style="margin:0">
+                <label>Link layer</label>
+                <select id="sqm-linklayer" class="input"><option value="ethernet">Ethernet</option><option value="none">None</option><option value="atm">ATM/DSL</option></select>
+              </div>
+              <div class="form-row" style="margin:0">
+                <label>Packet overhead (bytes)</label>
+                <input type="number" id="sqm-overhead" class="input" min="0" max="256" value="0">
+              </div>
+            </div>
+            <div class="form-row" style="margin-top:12px;">
+              <label>Per-client fairness</label>
+              <select id="sqm-host-fairness" class="input"><option value="1">Enabled (recommended)</option><option value="0">Disabled</option></select>
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">CAKE shares the shaped line fairly between customer devices. Set both rates about 5–10% below a wired speed test.</p>
+            </div>
+            <div class="notice-amber" style="margin-top:10px;">SQM requires both download and upload rates. Leave Per-Device Bandwidth Limit disabled to avoid shaping the same traffic twice.</div>
+          </div>
+          <!-- Pause behavior -->
+          <div class="form-card">
+            <h3 class="form-title">Auto Pause/Resume Settings</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Each WiFi rate has its own pause limit. Limits are applied once per session and never stack when more time is added.</p>
+            <div class="form-row" style="margin-top:14px;">
+              <label>Pause Penalty (minutes)</label>
+              <input type="number" id="set-pause-penalty" class="input" min="0" max="60" step="1" style="max-width:120px;" placeholder="0">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Deduct this many minutes each time a customer pauses. Set to 0 to disable.</p>
+            </div>
+            <div class="form-row">
+              <label>Auto-Pause on Disconnect</label>
+              <select id="set-auto-pause" class="input">
+                <option value="1" selected>Enabled &mdash; pause session when device disconnects</option>
+                <option value="0">Disabled</option>
+              </select>
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Automatically pause a customer's session when their device leaves the network.</p>
+            </div>
+            <div class="form-row">
+              <label>Auto-Resume on Reconnect</label>
+              <select id="set-auto-resume" class="input">
+                <option value="1" selected>Enabled &mdash; resume automatically when device reconnects</option>
+                <option value="0">Disabled</option>
+              </select>
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Automatically resume sessions paused by disconnect when the device reconnects. Manually paused sessions stay paused.</p>
+            </div>
+          </div>
+          <!-- Free Time -->
+          <div class="form-card">
+            <h3 class="form-title">Free Time</h3>
+            <div class="form-row"><label>Enable Free Time</label><select id="set-free-enabled" class="input"><option value="0">Disabled</option><option value="1">Enabled</option></select></div>
+            <div class="form-row"><label>Free Minutes</label><input type="number" id="set-free-minutes" class="input" min="1" max="60"></div>
+            <div class="form-row"><label>Daily Limit (claims per device)</label><input type="number" id="set-free-limit" class="input" min="1" max="10"></div>
+          </div>
+          <!-- Coinslot Settings -->
+          <div class="form-card">
+            <h3 class="form-title">Coinslot Settings</h3>
+            <div class="form-row">
+              <label>Coin Modal Timeout (seconds)</label>
+              <input type="number" id="set-coin-timeout" class="input" min="10" max="300" step="1" style="max-width:120px;" placeholder="60">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">How long the Insert Coin / Add Time modal stays open before auto-cancelling.</p>
+            </div>
+            <div class="form-row">
+              <label>Busy Lock</label>
+              <select id="set-busy-lock" class="input">
+                <option value="1">Enabled &mdash; one customer at a time</option>
+                <option value="0">Disabled &mdash; allow concurrent inserts</option>
+              </select>
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">When enabled, other customers cannot open Insert Coin or Add Time while someone else is already in the modal.</p>
+            </div>
+            <div class="form-row">
+              <label>Max Empty Opens (rate limit)</label>
+              <input type="number" id="set-max-empty" class="input" min="1" max="20" step="1" style="max-width:120px;" placeholder="3">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Number of times a device can open the modal without inserting a coin before being temporarily blocked. Default: 3.</p>
+            </div>
+            <div class="form-row">
+              <label>Abuse Cooldown (seconds)</label>
+              <input type="number" id="set-empty-cooldown" class="input" min="30" max="3600" step="10" style="max-width:120px;" placeholder="120">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">How long a device is blocked after hitting the empty-open limit. Default: 120s (2 min).</p>
+            </div>
+          </div>
+          <!-- Content Filtering (embedded in Settings) -->
+          <div class="form-card">
+            <h3 class="form-title">Content Filtering</h3>
+            <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">Block selected domains for customer devices. Changes apply immediately.</p>
+            <div class="form-row" style="align-items:center">
+              <label>Enable Site Blocking</label>
+              <label class="toggle-switch"><input type="checkbox" id="filter-enabled"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="form-row" style="flex-direction:column;align-items:flex-start;gap:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+                <label style="margin:0">Blocked Domains</label>
+                <button class="btn btn-sm btn-outline" id="btn-add-domain">+ Add Domain</button>
+              </div>
+              <div id="domain-list" style="width:100%;display:flex;flex-direction:column;gap:5px"></div>
+              <div id="domain-add-row" style="display:none;width:100%;gap:8px;align-items:center" class="flex">
+                <input type="text" id="domain-input" class="input" placeholder="e.g. tiktok.com" style="flex:1">
+                <button class="btn btn-sm btn-primary" id="btn-confirm-domain">Add</button>
+                <button class="btn btn-sm btn-outline" id="btn-cancel-domain">Cancel</button>
+              </div>
+            </div>
+            <div class="notice-amber" style="margin-top:16px;">Upstream access protection and connection-sharing protection are enforced automatically and cannot be disabled from the portal.</div>
+            <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
+              <button class="btn btn-sm btn-primary" id="btn-save-filtering">&#10003; Apply Network Rules</button>
+              <span id="filter-save-status" style="font-size:.82rem;color:var(--text2)"></span>
+            </div>
+          </div>
+
+          <button id="save-settings-btn" class="btn btn-primary btn-block">Save All Settings</button>
+        </section>
+
+        <!-- WiFi Rates Tab -->
+        <section id="tab-rates" class="tab-content">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">WiFi Rates</h2>
+              <p style="color:var(--text2);font-size:.85rem;margin-top:4px;">Set the time customers receive for each price point.</p>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">WiFi Rates</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Choose minutes, hours, or days for each price point.</p>
+            <div class="rate-tier-panel">
+              <div class="rate-tier-panel-header">
+                <div>
+                  <span class="rate-tier-panel-label">Rates</span>
+                  <span class="rate-tier-panel-hint">0 pause limit or validity means unlimited; validity uses D / H / M</span>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-add-tier">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="margin-right:4px;vertical-align:-1px;"><path d="M8 2a1 1 0 011 1v4h4a1 1 0 010 2H9v4a1 1 0 01-2 0V9H3a1 1 0 010-2h4V3a1 1 0 011-1z"/></svg>Add Rates
+                </button>
+              </div>
+              <div id="rate-rows" class="rate-tier-list"></div>
+              <div id="rate-empty" class="rate-tier-empty">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+                <span>No tiers yet &mdash; click <strong>Add Rates</strong> to create one.</span>
+              </div>
+              <textarea id="set-rates" style="display:none;"></textarea>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Flat Rate Override</h3>
+            <div class="form-row">
+              <label>Minutes per peso</label>
+              <input type="number" id="set-flat-rate" class="input" min="0" step="1" style="max-width:120px;" placeholder="e.g. 12">
+              <p style="font-size:.72rem;color:var(--text2);margin-top:4px;">Leave blank to use the rate tiers above.</p>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button id="save-rates-btn" class="btn btn-primary">Save WiFi Rates</button>
+            <span id="rates-save-status" style="font-size:.82rem;color:var(--text2)"></span>
+          </div>
+        </section>
+
+        <!-- Branding Tab -->
+        <section id="tab-branding" class="tab-content">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Branding</h2>
+              <p style="color:var(--text2);font-size:.85rem;margin-top:4px;">Customize the customer portal logo, banner, and coin sounds.</p>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Portal Assets</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Insert Sound loops while the modal is open. Coin Detect Sound plays once per coin. Max: Insert 800KB, Detect 200KB, Logo/Hero 500KB.</p>
+            <div class="form-row" style="align-items:center;gap:8px;"><label>Insert Sound (loops)</label><input type="file" id="upload-coin-sound" accept=".mp3,.wav,.ogg" style="font-size:.8rem;flex:1;"><button class="btn btn-sm" onclick="uploadAsset('coin_sound','upload-coin-sound')">Upload</button><span id="coin-sound-status" style="font-size:.75rem;color:var(--text2);"></span></div>
+            <div class="form-row" style="align-items:center;gap:8px;"><label>Coin Detect Sound</label><input type="file" id="upload-tick-sound" accept=".mp3,.wav,.ogg" style="font-size:.8rem;flex:1;"><button class="btn btn-sm" onclick="uploadAsset('tick_sound','upload-tick-sound')">Upload</button><span id="tick-sound-status" style="font-size:.75rem;color:var(--text2);"></span></div>
+            <div class="form-row" style="align-items:center;gap:8px;"><label>Logo</label><input type="file" id="upload-logo" accept=".png,.jpg,.jpeg,.webp,.svg" style="font-size:.8rem;flex:1;"><button class="btn btn-sm" onclick="uploadAsset('logo','upload-logo')">Upload</button><span id="logo-status" style="font-size:.75rem;color:var(--text2);"></span></div>
+            <div class="form-row" style="align-items:center;gap:8px;"><label>Hero Banner</label><input type="file" id="upload-hero" accept=".png,.jpg,.jpeg,.webp" style="font-size:.8rem;flex:1;"><button class="btn btn-sm" onclick="uploadAsset('hero','upload-hero')">Upload</button><span id="hero-status" style="font-size:.75rem;color:var(--text2);"></span></div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Online portal updater</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Apply a KemoFi portal theme package to this router without flashing firmware or rebooting.</p>
+            <div class="form-row" style="align-items:center;gap:8px;"><label for="portal-package-file">Theme package</label><input type="file" id="portal-package-file" accept="application/json,.json" style="font-size:.8rem;flex:1;"><button id="apply-portal-package-btn" class="btn btn-sm" type="button" onclick="applyPortalPackage()">Apply package</button></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;"><button id="restore-portal-style-btn" class="btn btn-sm" type="button" onclick="restorePortalStyle()">Restore default style</button><span id="portal-update-status" style="font-size:.75rem;color:var(--text2);"></span></div>
+          </div>
+        </section>
+
+        <!-- Remote Access Tab -->
+        <section id="tab-remote" class="tab-content">
+          <div class="form-card">
+            <h3 class="form-title">Remote Access</h3>
+            <p style="font-size:.82rem;color:var(--text2);margin-bottom:14px;">Secure management access for licensed Remote and Centralized editions. Customer Internet remains on the normal WAN path.</p>
+            <div class="info-grid" style="margin-bottom:14px;">
+              <div class="info-item"><span class="info-label" id="remote-label-status">Connection</span><span class="info-value" id="remote-vpn-status">Checking</span></div>
+              <div class="info-item"><span class="info-label">Edition</span><span class="info-value" id="remote-vpn-edition">--</span></div>
+              <div class="info-item"><span class="info-label" id="remote-label-service">Service</span><span class="info-value" id="remote-vpn-service">--</span></div>
+              <div class="info-item"><span class="info-label" id="remote-label-interface">Interface</span><span class="info-value" id="remote-vpn-interface">--</span></div>
+              <div class="info-item"><span class="info-label" id="remote-label-handshake">Last Handshake</span><span class="info-value" id="remote-vpn-handshake">--</span></div>
+              <div class="info-item"><span class="info-label" id="remote-label-transfer">Data Transfer</span><span class="info-value" id="remote-vpn-transfer">--</span></div>
+              <div class="info-item"><span class="info-label">License</span><span class="info-value" id="remote-vpn-license">--</span></div>
+              <div class="info-item"><span class="info-label" id="remote-label-ready">Ready Since</span><span class="info-value" id="remote-vpn-ready">--</span></div>
+            </div>
+            <div class="form-actions">
+              <button id="remote-reconnect-btn" class="btn btn-primary">Reconnect</button>
+              <button id="remote-diagnostics-btn" class="btn btn-outline">Run Checks</button>
+            </div>
+            <div id="remote-diagnostics" style="font-size:.82rem;color:var(--text2);margin-top:14px;" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <!-- Internet / WAN Tab -->
+        <section id="tab-wan" class="tab-content">
+          <div class="form-card wan-card">
+            <h3 class="form-title">Internet / WAN</h3>
+            <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Configure how this router connects to the upstream modem or ISP. Customer LAN, VLAN, SQM, and speed-limit settings are not changed here.</p>
+            <div class="wan-status-grid" aria-live="polite">
+              <div class="wan-status-item"><span class="wan-status-label">Status</span><span id="wan-runtime-status" class="wan-status-value">Checking...</span></div>
+              <div class="wan-status-item"><span class="wan-status-label">Interface</span><span id="wan-runtime-interface" class="wan-status-value">--</span></div>
+              <div class="wan-status-item"><span class="wan-status-label">IPv4 address</span><span id="wan-runtime-ip" class="wan-status-value">--</span></div>
+              <div class="wan-status-item"><span class="wan-status-label">Gateway</span><span id="wan-runtime-gateway" class="wan-status-value">--</span></div>
+            </div>
+            <div class="notice-amber">Changing the upstream connection may briefly interrupt Internet access. Keep this admin page open and confirm the new connection before the safety timer expires. The router automatically restores the previous network configuration if it is not confirmed.</div>
+            <div class="form-row">
+              <label for="wan-proto">Connection mode</label>
+              <select id="wan-proto" class="input">
+                <option value="dhcp">DHCP (automatic)</option>
+                <option value="static">Static IPv4</option>
+              </select>
+            </div>
+            <div id="wan-dhcp-fields">
+              <div class="form-row">
+                <label for="wan-hostname">DHCP hostname <span style="font-weight:400">(optional)</span></label>
+                <input type="text" id="wan-hostname" class="input" maxlength="63" placeholder="Leave blank unless your ISP requires one" autocomplete="off">
+              </div>
+            </div>
+            <div id="wan-static-fields" class="wan-grid" style="display:none;">
+              <div class="form-row">
+                <label for="wan-ipaddr">Static IPv4 address</label>
+                <input type="text" id="wan-ipaddr" class="input" inputmode="decimal" placeholder="e.g. 192.0.2.10">
+              </div>
+              <div class="form-row">
+                <label for="wan-netmask">Netmask or prefix</label>
+                <input type="text" id="wan-netmask" class="input" inputmode="decimal" placeholder="e.g. 255.255.255.0 or /24">
+              </div>
+              <div class="form-row">
+                <label for="wan-gateway">Gateway</label>
+                <input type="text" id="wan-gateway" class="input" inputmode="decimal" placeholder="e.g. 192.0.2.1">
+              </div>
+              <div class="form-row">
+                <label for="wan-static-dns">DNS servers <span style="font-weight:400">(optional)</span></label>
+                <input type="text" id="wan-static-dns" class="input" inputmode="decimal" placeholder="e.g. 1.1.1.1, 8.8.8.8">
+              </div>
+            </div>
+            <div class="form-actions">
+              <button id="wan-apply-btn" class="btn btn-primary" type="button">Apply connection</button>
+              <button id="wan-test-btn" class="btn btn-outline" type="button">Test current connection</button>
+              <button id="wan-refresh-btn" class="btn btn-outline" type="button">Refresh</button>
+              <span id="wan-save-status" style="align-self:center;min-height:1.25em;font-size:.76rem;color:var(--text2)" aria-live="polite"></span>
+            </div>
+            <div id="wan-pending-card" class="wan-pending" style="display:none;">
+              <strong>Connection change is pending confirmation.</strong>
+              <span id="wan-pending-copy">Verify the Internet connection, then keep or restore the configuration.</span>
+              <div class="form-actions">
+                <button id="wan-confirm-btn" class="btn btn-primary" type="button">Keep configuration</button>
+                <button id="wan-rollback-btn" class="btn btn-outline" type="button">Restore previous</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- System Tab -->
+        <section id="tab-system" class="tab-content">
+          <div class="form-card firmware-update-card">
+            <h3 class="form-title">Firmware Update <span class="firmware-update-badge">sysupgrade</span></h3>
+            <p class="firmware-update-copy"><strong>Upload a compatible OpenWrt .bin image.</strong> The router validates the board profile before applying it and reboots automatically.</p>
+            <div class="form-row">
+              <label for="manual-firmware-file">Firmware file</label>
+              <input type="file" id="manual-firmware-file" class="input" accept=".bin,application/octet-stream">
+            </div>
+            <div class="form-row">
+              <label for="manual-firmware-mode">Firmware action</label>
+              <select id="manual-firmware-mode" class="input">
+                <option value="preserve" selected>Preserve settings (recommended)</option>
+                <option value="fresh">Fresh install (erase settings and data)</option>
+                <option value="check">Download &amp; validate only (no flash)</option>
+              </select>
+            </div>
+            <div class="firmware-update-warning">
+              Use only an image built for this exact router model and hardware revision. An incompatible image is rejected before reboot. Keep power connected during the update.
+            </div>
+            <div class="form-actions">
+              <button id="manual-update-btn" class="btn btn-primary" type="button">Upload &amp; Install</button>
+              <span id="manual-update-message" class="firmware-update-message" aria-live="polite"></span>
+            </div>
+            <div id="manual-update-progress" class="firmware-update-progress" aria-live="polite">
+              <div class="firmware-update-progress-track" role="progressbar" aria-label="Firmware upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="manual-update-progress-bar" class="firmware-update-progress-bar"></div>
+              </div>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Online Firmware URL</h3>
+            <p class="firmware-update-copy">Download a compatible HTTPS <strong>.bin</strong> image, Google Drive file link, or MediaFire share link directly on the router.</p>
+            <div class="form-row"><label for="firmware-url">Firmware URL or supported share link</label><input id="firmware-url" class="input" type="url" placeholder="https://example.com/router.bin or share link" autocomplete="off"></div>
+            <div class="form-row"><label for="url-firmware-mode">Firmware action</label><select id="url-firmware-mode" class="input"><option value="preserve" selected>Preserve settings (recommended)</option><option value="fresh">Fresh install (erase settings and data)</option><option value="check">Download &amp; validate only (no flash)</option></select></div>
+            <div class="firmware-update-warning" role="note"><strong>Warning:</strong> Use only an image built for this exact router model and hardware revision. An incompatible image is rejected before reboot. Keep power connected during the update.</div>
+            <div class="form-actions"><button id="url-update-btn" class="btn btn-primary" type="button">Run selected action</button><span id="url-update-message" class="firmware-update-message" aria-live="polite"></span></div>
+            <div id="url-update-progress" class="firmware-update-progress" aria-live="polite">
+              <div class="firmware-update-progress-track" role="progressbar" aria-label="Firmware download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="url-update-progress-bar" class="firmware-update-progress-bar"></div>
+              </div>
+              <div id="url-update-progress-text" class="firmware-update-progress-text">Waiting to start.</div>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Change Password</h3>
+            <div class="form-row">
+              <label>Current Password</label>
+              <div class="pw-field-wrap">
+                <input type="password" id="current-password" class="input" autocomplete="current-password">
+                <button type="button" class="pw-eye" onclick="togglePw('current-password', this)" aria-label="Show/hide">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>New Password</label>
+              <div class="pw-field-wrap">
+                <input type="password" id="new-password" class="input" placeholder="Min. 4 characters">
+                <button type="button" class="pw-eye" onclick="togglePw('new-password', this)" aria-label="Show/hide">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Confirm Password</label>
+              <div class="pw-field-wrap">
+                <input type="password" id="confirm-password" class="input" placeholder="Repeat password">
+                <button type="button" class="pw-eye" onclick="togglePw('confirm-password', this)" aria-label="Show/hide">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <button id="change-pw-btn" class="btn btn-primary">Change Password</button>
+          </div>
+          <div class="form-card">
+            <h3 class="form-title">Reboot Schedule</h3>
+            <div class="form-row"><label>Auto Reboot</label><select id="set-reboot-enabled" class="input"><option value="0">Disabled</option><option value="1">Enabled</option></select></div>
+            <div class="form-row"><label>Time</label><input type="time" id="set-reboot-time" class="input" value="03:00"></div>
+            <div class="form-row"><label>Days</label><select id="set-reboot-days" class="input"><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekends">Weekends</option></select></div>
+            <button id="save-reboot-btn" class="btn btn-primary">Save Schedule</button>
+          </div>
+          <div class="form-card danger-zone">
+            <h3 class="form-title">Power</h3>
+            <div class="form-actions">
+              <button id="reboot-btn" class="btn btn-danger">Reboot</button>
+              <button id="shutdown-btn" class="btn btn-danger-outline">Shutdown</button>
+            </div>
+          </div>
+                </section>
+
+        <!-- ── Coinslot Tab ─────────────────────────────────────────── -->
+        <!-- License Tab -->
+        <section id="tab-license" class="tab-content">
+          <div class="form-card">
+            <h3 class="form-title">License</h3>
+            <p style="font-size:.82rem;color:var(--text2);margin-bottom:14px;">Activate this router with its license key. The key is not displayed after activation.</p>
+            <div class="form-row"><label>License Key</label><input type="text" id="license-key" class="input" placeholder="Enter license key" autocomplete="off"></div>
+            <div class="form-row"><span class="info-label">Status:</span> <span id="license-status" class="badge badge-gray">--</span></div>
+            <div class="form-row"><span class="info-label">License Used:</span> <span id="license-used" class="info-value">Not configured</span></div>
+            <button id="activate-license-btn" class="btn btn-primary">Activate</button>
+          </div>
+        </section>
+
+        <section id="tab-vendos" class="tab-content">
+          <div class="section-header">
+            <h2 class="section-title">Coinslot <span id="vendo-count" style="font-size:.8rem;font-weight:400;color:var(--text2)"></span></h2>
+            <button id="btn-refresh-vendos" class="btn btn-primary btn-sm">Refresh</button>
+          </div>
+          <div class="form-card" id="vendo-empty">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:.3;margin:0 auto 12px"><path d="M4 4a2 2 0 00-2 2v1h20V6a2 2 0 00-2-2H4zm18 5H2v9a2 2 0 002 2h16a2 2 0 002-2V9zM9 13a1 1 0 000 2h6a1 1 0 100-2H9z"/></svg>
+              <p style="color:var(--text2);font-size:.9rem">No coinslot nodes registered yet.<br>Join the Coinslot setup WiFi, enter this router's WiFi details, and save. It will appear here automatically.</p>
+            </div>
+          </div>
+          <div class="table-wrap" style="display:none" id="vendos-table-wrap">
+            <table class="table" style="min-width:700px">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Firmware</th>
+                  <th>Node ID</th>
+                  <th>IP</th>
+                  <th>Mode</th>
+                  <th>Pins (C/R)</th>
+                  <th>Pulse</th>
+                  <th style="text-align:center">Coins</th>
+                  <th>Status</th>
+                  <th>Last Seen</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="vendos-body"></tbody>
+            </table>
+          </div>
+          <!-- Router-owned Coinslot settings -->
+          <div id="coin-settings-modal" class="modal-overlay" style="display:none" aria-hidden="true">
+            <div class="modal-box" style="max-width:420px">
+              <button class="modal-close" id="close-coin-settings-modal" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text2)">&times;</button>
+              <h3 class="modal-title">Coinslot settings</h3>
+              <p style="font-size:.85rem;color:var(--text2);margin-bottom:16px">These values are sent to the ESP automatically on its next poll.</p>
+              <input id="coin-settings-node-id" type="hidden">
+              <div class="form-row"><label>Coinslot name</label><input id="coin-settings-name" class="input" maxlength="48"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div class="form-row"><label>Coin GPIO / NodeMCU pin</label><select id="coin-settings-coin-gpio" class="input">
+                  <option value="16">D0 / GPIO16</option>
+                  <option value="5">D1 / GPIO5</option>
+                  <option value="4">D2 / GPIO4</option>
+                  <option value="0">D3 / GPIO0 (boot pin)</option>
+                  <option value="2">D4 / GPIO2 (default coin)</option>
+                  <option value="14">D5 / GPIO14</option>
+                  <option value="12">D6 / GPIO12</option>
+                  <option value="13">D7 / GPIO13</option>
+                  <option value="15">D8 / GPIO15 (default relay)</option>
+                  <option value="3">RX / GPIO3 (serial)</option>
+                  <option value="1">TX / GPIO1 (serial)</option>
+                </select></div>
+                <div class="form-row"><label>Relay GPIO / NodeMCU pin</label><select id="coin-settings-relay-gpio" class="input">
+                  <option value="16">D0 / GPIO16</option>
+                  <option value="5">D1 / GPIO5</option>
+                  <option value="4">D2 / GPIO4</option>
+                  <option value="0">D3 / GPIO0 (boot pin)</option>
+                  <option value="2">D4 / GPIO2 (default coin)</option>
+                  <option value="14">D5 / GPIO14</option>
+                  <option value="12">D6 / GPIO12</option>
+                  <option value="13">D7 / GPIO13</option>
+                  <option value="15">D8 / GPIO15 (default relay)</option>
+                  <option value="3">RX / GPIO3 (serial)</option>
+                  <option value="1">TX / GPIO1 (serial)</option>
+                </select></div>
+              </div>
+              <div class="modal-actions" style="justify-content:flex-end;gap:10px">
+                <button class="btn btn-outline btn-sm" id="cancel-coin-settings">Cancel</button>
+                <button class="btn btn-primary btn-sm" id="save-coin-settings">Save settings</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+      </div><!-- /content-area -->
+    </div><!-- /main-content -->
+  </div><!-- /app-shell -->
+</div><!-- /app -->
+
+<div id="reboot-overlay" class="modal" style="display:none" aria-live="polite">
+  <div class="modal-backdrop"></div>
+  <div class="modal-card" style="text-align:center">
+    <h3>Restarting</h3>
+    <p id="reboot-overlay-msg" class="modal-desc" style="margin:10px 0 0">Reconnecting...</p>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="app.js?v=1.2.10-wan-v1"></script>
+</body>
+</html>

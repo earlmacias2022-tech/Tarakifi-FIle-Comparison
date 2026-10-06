@@ -1,0 +1,13 @@
+Package: luci-lib-nixio
+Version: 26.228.65014~8e278ba
+Depends: libc, liblua5.1.5
+Source: feeds/luci/libs/luci-lib-nixio
+SourceName: luci-lib-nixio
+License: Apache-2.0
+Section: luci
+SourceDateEpoch: 1786903414
+URL: https://github.com/openwrt/luci
+Maintainer: OpenWrt LuCI community
+Architecture: mips_24kc
+Installed-Size: 92160
+Description:  NIXIO POSIX library

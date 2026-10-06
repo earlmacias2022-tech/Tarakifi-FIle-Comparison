@@ -1,0 +1,57 @@
+#!/bin/sh
+set -eu
+
+# Common LAN and SSH defaults for every supported KemoFi board. Only the
+# logical LAN interface is changed here; physical WAN/radio devices remain in
+# the board-specific profile scripts.
+if uci -q get network.lan >/dev/null 2>&1; then
+    uci -q set network.lan.proto='static'
+    uci -q set network.lan.ipaddr='10.0.0.1'
+    uci -q set network.lan.netmask='255.255.255.0'
+    uci -q commit network
+fi
+
+# Generate the radio configuration when the base image has not created it
+# yet, then apply the standard customer SSIDs by radio band. Do not change
+# encryption, keys, radio devices, or WAN settings here.
+if [ ! -s /etc/config/wireless ] && [ -x /sbin/wifi ]; then
+    /sbin/wifi config >/dev/null 2>&1 || true
+fi
+if [ -s /etc/config/wireless ]; then
+    # OpenWrt's generated wifi-device sections default to disabled=1 on a
+    # first boot. Enable every discovered radio so customer APs can beacon on
+    # every supported board without assuming radio0/1 names.
+    for device in $(uci show wireless 2>/dev/null | sed -n 's/^wireless\.\([^.=]*\)=wifi-device$/\1/p'); do
+        uci -q set "wireless.$device.disabled=0"
+    done
+    for section in $(uci show wireless 2>/dev/null | sed -n 's/^wireless\.\([^.=]*\)=wifi-iface$/\1/p'); do
+        mode="$(uci -q get "wireless.$section.mode" 2>/dev/null || true)"
+        network="$(uci -q get "wireless.$section.network" 2>/dev/null || true)"
+        [ "$mode" = 'ap' ] || continue
+        # A visible AP requires both the interface and its parent radio to be
+        # enabled. Restrict the default SSID changes below to customer LAN APs.
+        uci -q set "wireless.$section.disabled=0"
+        uci -q set "wireless.$section.hidden=0"
+        case " $network " in
+            *' lan '*) ;;
+            *) continue ;;
+        esac
+
+        device="$(uci -q get "wireless.$section.device" 2>/dev/null || true)"
+        band="$(uci -q get "wireless.$device.band" 2>/dev/null || true)"
+        case "$band" in
+            2g) uci -q set "wireless.$section.ssid=KemoFi LiteV2 WiFi 2G" ;;
+            5g) uci -q set "wireless.$section.ssid=KemoFi LiteV2 WiFi 5G" ;;
+        esac
+    done
+    uci -q commit wireless
+fi
+
+# The build supplies a password hash through /etc/kemofi/root-password-hash
+# when KEMOFI_DEFAULT_ROOT_PASSWORD is configured. Keep Dropbear compatible
+# with that first-boot credential on every board profile.
+uci -q set dropbear.@dropbear[0].PasswordAuth='on' || true
+uci -q set dropbear.@dropbear[0].RootPasswordAuth='on' || true
+uci -q commit dropbear || true
+
+exit 0
